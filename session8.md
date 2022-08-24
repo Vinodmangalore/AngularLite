@@ -286,4 +286,10 @@ After putting a few items in the cart, users can review their items, enter their
 
 To confirm submission, open the console to see an object containing the name and address you submitted.
 
+## ✅ Tasks
+
+✅ Create the shipping implementation in the `computer-store` project with all the above steps.
+
 ### *End of session 8*
+
+### [NEXT: Session9](session9.md)

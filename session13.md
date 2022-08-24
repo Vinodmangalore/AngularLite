@@ -1,358 +1,390 @@
 ### *Session 13*
 
-# Display a selection list
-In this page, you'll expand the Tour of Heroes application to display a list of heroes, and allow users to select a hero and display the hero's details.
+# Add services
+The Tour of Heroes `HeroesComponent` is currently getting and displaying fake data.
 
-## Create mock heroes
-You'll need some heroes to display.
+After the refactoring in this tutorial, `HeroesComponent` will be lean and focused on supporting the view. It will also be easier to unit-test with a mock service.
 
-Eventually you'll get them from a remote data server. For now, you'll create some mock heroes and pretend they came from the server.
+## Why services
+Components shouldn't fetch or save data directly and they certainly shouldn't knowingly present fake data. They should focus on presenting data and delegate data access to a service.
 
-Create a file called `mock-heroes.ts` in the `src/app/` folder. Define a `HEROES` constant as an array of ten heroes and export it. The file should look like this.
+In this tutorial, you'll create a `HeroService` that all application classes can use to get heroes. Instead of creating that service with the 
+`new
+keyword`, you'll rely on Angular `dependency injection` to inject it into the HeroesComponent constructor.
 
-`src/app/mock-heroes.ts`
-```typescript
+Services are a great way to share information among classes that don't know each other. You'll create a `MessageService` and inject it in two places.
+
+1. Inject in HeroService, which uses the service to send a message.
+2. Inject in MessagesComponent, which displays that message, and also displays the ID when the user clicks a hero.
+
+## Create the HeroService
+
+Using the Angular CLI, create a service called hero.
+
+```
+ng generate service hero
+```
+
+The command generates a skeleton HeroService class in src/app/hero.service.ts as follows:
+
+`src/app/hero.service.ts (new service)`
+
+```ts 
+import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class HeroService {
+
+  constructor() { }
+
+} 
+```
+## @Injectable() services
+Notice that the new service imports the Angular `Injectable` symbol and annotates the class with the `@Injectable()` decorator. This marks the class as one that participates in the dependency injection system. The `HeroService` class is going to provide an injectable service, and it can also have its own injected dependencies. It doesn't have any dependencies yet, but `it will soon`.
+
+The `@Injectable()` decorator accepts a metadata object for the service, the same way the `@Component()` decorator did for your component classes.
+
+### Get hero data
+The `HeroService` could get hero data from anywhere—a web service, local storage, or a mock data source.
+
+Removing data access from components means you can change your mind about the implementation anytime, without touching any components. They don't know how the service works.
+
+The implementation in this tutorial will continue to deliver mock heroes.
+
+Import the `Hero` and `HEROES`.
+
+`src/app/hero.service.ts`
+
+```ts 
 import { Hero } from './hero';
-
-export const HEROES: Hero[] = [
-  { id: 11, name: 'Dr Nice' },
-  { id: 12, name: 'Narco' },
-  { id: 13, name: 'Bombasto' },
-  { id: 14, name: 'Celeritas' },
-  { id: 15, name: 'Magneta' },
-  { id: 16, name: 'RubberMan' },
-  { id: 17, name: 'Dynama' },
-  { id: 18, name: 'Dr IQ' },
-  { id: 19, name: 'Magma' },
-  { id: 20, name: 'Tornado' }
-];
+import { HEROES } from './mock-heroes'
 ```
-## Displaying heroes
-Open the `HeroesComponent` class file and import the mock `HEROES`
+Add a `getHeroes` method to return the mock heroes.
 
-`src/app/heroes/heroes.component.ts (import HEROES)`
-```typescript
-import { HEROES } from '../mock-heroes';
-```
-In the same file (`HeroesComponent` class), define a component property called heroes to expose the `HEROES` array for binding
-
-`src/app/heroes/heroes.component.ts`
-```typescript
-export class HeroesComponent implements OnInit {
-
-  heroes = HEROES;
+`src/app/hero.service.ts`
+```ts 
+getHeroes(): Hero[] {
+  return HEROES;
 }
 ```
 
-## List heroes with ***ngFor**
-Open the HeroesComponent template file and make the following changes:
-* Add an `<h2>` at the top,
-* Below it add an HTML unordered list (`<ul>`)
-* Insert an <`li`> within the <`ul`> that displays properties of a `hero`.
-* Sprinkle some CSS classes for styling (you'll add the CSS styles shortly).
+## Provide the HeroService
 
-Make it look like this:
-`heroes.component.html (heroes template)`
-```html
-<h2>My Heroes</h2>
-<ul class="heroes">
-  <li>
-    <span class="badge">{{hero.id}}</span> {{hero.name}}
-  </li>
-</ul>
+You must make the `HeroService` available to the dependency injection system before Angular can inject it into the `HeroesComponent` by registering a provider. A provider is something that can create or deliver a service; in this case, it instantiates the `HeroService` class to provide the service.
+
+To make sure that the `HeroService` can provide this service, register it with the injector, which is the object that is responsible for choosing and injecting the provider where the application requires it.
+
+By default, the Angular CLI command `ng generate service` registers a provider with the root injector for your service by including provider metadata, that is `providedIn: 'root'` in the ` @Injectable() `decorator.
+
+```ts 
+@Injectable({
+  providedIn: 'root',
+})
 ```
-That displays an error since the property 'hero' does not exist. To have access to each individual hero and list them all, add an *`ngFor` to the `<li>` to iterate through the list of heroes:
+When you provide the service at the root level, Angular creates a single, shared instance of `HeroService` and injects into any class that asks for it. Registering the provider in the `@Injectable` metadata also allows Angular to optimize an application by removing the service if it turns out not to be used after all.
 
-```html
-<li *ngFor="let hero of heroes">
+The HeroService is now ready to plug into the HeroesComponent.
+
+## Update HeroesComponent
+Open the `HeroesComponent` class file.
+
+Delete the `HEROES` import, because you won't need that anymore. Import the `HeroService` instead.
+
+`src/app/heroes/heroes.component.ts (import HeroService)`
+```ts 
+import { HeroService } from '../hero.service';
 ```
-The *`ngFor` is Angular's repeater directive. It repeats the host element for each element in a list.
+Replace the definition of the heroes property with a declaration.
 
-The syntax in this example is as follows:
-* `<li>` is the host element.
-* `heroes` holds the mock heroes list from the `HeroesComponent` class, the mock heroes list.
-* `hero` holds the current hero object for each iteration through the list.
+`src/app/heroes/heroes.component.ts`
+```ts 
+heroes: Hero[] = [];
+```
+### Inject the HeroService
+Add a private `heroService` parameter of type `HeroService` to the constructor.
 
->Don't forget the asterisk (*) in front of ngFor. It's a critical part of the syntax.
+`src/app/heroes/heroes.component.ts`
 
-After the browser refreshes, the list of heroes appears.
+```ts 
+constructor(private heroService: HeroService) {}
+```
 
-## Style the heroes
-The heroes list should be attractive and should respond visually when users hover over and select a hero from the list.
+The parameter simultaneously defines a private `heroService` property and identifies it as a `HeroService` injection site.
 
-In the `first tutorial`, you set the basic styles for the entire application in `styles.css`. That stylesheet didn't include styles for this list of heroes.
+When Angular creates a `HeroesComponent`, the `Dependency Injection` system sets the `heroService` parameter to the singleton instance of `HeroService` .
 
-You could add more styles to `styles.css` and keep growing that stylesheet as you add components.
+## Add getHeroes()
+Create a method to retrieve the heroes from the service.
+`src/app/heroes/heroes.component.ts`
+```ts 
+getHeroes(): void {
+  this.heroes = this.heroService.getHeroes();
+}
+```
 
-You may prefer instead to define private styles for a specific component and keep everything a component needs— the code, the HTML, and the CSS —together in one place.
+### Call it in ngOnInit()
 
-This approach makes it easier to re-use the component somewhere else and deliver the component's intended appearance even if the global styles are different.
+While you could call `getHeroes()` in the constructor, that's not the best practice.
 
-You define private styles either inline in the `@Component.styles` array or as stylesheet file(s) identified in the `@Component.styleUrls` array.
+Reserve the constructor for minimal initialization such as wiring constructor parameters to properties. The constructor shouldn't do anything. It certainly shouldn't call a function that makes HTTP requests to a remote server as a real data service would.
 
-When the CLI generated the `HeroesComponent`, it created an empty `heroes.component.css` stylesheet for the `HeroesComponent` and pointed to it in `@Component.styleUrls` like this.
+Instead, call `getHeroes()` inside the *`ngOnInit lifecycle hook`* and let Angular call `ngOnInit()` at an appropriate time after constructing a `HeroesComponent` instance.
 
-`src/app/heroes/heroes.component.ts (@Component)`
-```typescript
+`src/app/heroes/heroes.component.ts`
+
+```ts 
+ngOnInit(): void {
+  this.getHeroes();
+}
+```
+## See it run
+
+After the browser refreshes, the application should run as before, showing a list of heroes and a hero detail view when you click on a hero name.
+
+# Observable data
+The `HeroService.getHeroes()` method has a synchronous signature, which implies that the `HeroService` can fetch heroes synchronously. The `HeroesComponent` consumes the `getHeroes()` result as if heroes could be fetched synchronously.
+
+`src/app/heroes/heroes.component.ts`
+``` ts 
+ this.heroes = this.heroService.getHeroes();
+```
+This will not work in a real application. You're getting away with it now because the service currently returns mock heroes. But soon the application will fetch heroes from a remote server, which is an inherently asynchronous operation.
+
+The `HeroService` must wait for the server to respond, `getHeroes()` cannot return immediately with hero data, and the browser will not block while the service waits.
+
+`HeroService.getHeroes()` must have an asynchronous signature of some kind.
+
+In this tutorial, `HeroService.getHeroes()` will return an `Observable` because it will eventually use the Angular `HttpClient.get` method to fetch the heroes and `HttpClient.get()` `returns an Observable`.
+
+## Observable HeroService
+`Observable` is one of the key classes in the `RxJS library`.
+
+In a `later tutorial on HTTP`, you'll learn that Angular's HttpClient methods return RxJS `Observables`. In this tutorial, you'll simulate getting data from the server with the RxJS `of()` function.
+
+Open the `HeroService` file and import the `Observable` and of symbols from RxJS.
+
+`src/app/hero.service.ts (Observable imports)`
+``` ts
+import { Observable, of } from 'rxjs';
+```
+Replace the `getHeroes()` method with the following:
+
+`src/app/hero.service.ts`
+
+```ts 
+getHeroes(): Observable<Hero[]> {
+  const heroes = of(HEROES);
+  return heroes;
+}
+```
+`of(HEROES)` returns an `Observable<Hero[]>` that emits a single value, the array of mock heroes.
+
+>In the HTTP tutorial, you'll call `HttpClient.get<Hero[]>() `which also returns an `Observable<Hero[]>` that emits a single value, an array of heroes from the body of the HTTP response.
+
+## Subscribe in HeroesComponent
+
+The `HeroService.getHeroes` method used to return a `Hero[]`. Now it returns an `Observable<Hero[]>`.
+
+You'll have to adjust to that difference in `HeroesComponent`.
+
+Find the `getHeroes` method and replace it with the following code (shown side-by-side with the previous version for comparison)
+
+`heroes.component.ts (Observable)`
+``` ts 
+getHeroes(): void {
+  this.heroService.getHeroes()
+      .subscribe(heroes => this.heroes = heroes);
+}
+```
+`heroes.component.ts (Original)`
+
+```ts 
+getHeroes(): void {
+  this.heroes = this.heroService.getHeroes();
+}
+```
+`Observable.subscribe()` is the critical difference.
+
+The previous version assigns an array of heroes to the component's `heroes` property. The assignment occurs synchronously, as if the server could return heroes instantly or the browser could freeze the UI while it waited for the server's response.
+
+That *won't work* when the `HeroService` is actually making requests of a remote server.
+
+The new version waits for the `Observable` to emit the array of heroes—which could happen now or several minutes from now. The `subscribe()` method passes the emitted array to the callback, which sets the component's `heroes` property.
+
+This asynchronous approach will work when the `HeroService` requests heroes from the server.
+
+## Show messages
+This section guides you through the following:
+* adding a MessagesComponent that displays application messages at the bottom of the screen
+* creating an injectable, app-wide MessageService for sending messages to be displayed
+* injecting MessageService into the HeroService
+* displaying a message when HeroService fetches heroes successfully
+
+##  Create MessagesComponent
+Use the CLI to create the `MessagesComponent`.
+
+```
+ng generate component messages
+```
+The CLI creates the component files in the `src/app/messages` folder and declares the `MessagesComponent` in `AppModule`.
+
+Modify the `AppComponent` template to display the generated `MessagesComponent`.
+
+`src/app/app.component.html`
+``` html
+<h1>{{title}}</h1>
+<app-heroes></app-heroes>
+<app-messages></app-messages>
+```
+You should see the default paragraph from `MessagesComponent` at the bottom of the page.
+
+
+## Create the MessageService
+Use the CLI to create the `MessageService` in `src/app`
+```
+ng generate service message
+```
+Open MessageService and replace its contents with the following.
+
+`src/app/message.service.ts`
+
+```ts 
+import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class MessageService {
+  messages: string[] = [];
+
+  add(message: string) {
+    this.messages.push(message);
+  }
+
+  clear() {
+    this.messages = [];
+  }
+}
+```
+The service exposes its cache of `messages` and two methods: one to `add()` a message to the cache and another to `clear()` the cache.
+
+### Inject it into the HeroService
+In `HeroService`, import the `MessageService`.
+`src/app/hero.service.ts (import MessageService)`
+``` ts 
+import { MessageService } from './message.service';
+```
+Modify the constructor with a parameter that declares a private `messageService` property. Angular will inject the singleton `MessageService` into that property when it creates the `HeroService`.
+`src/app/hero.service.ts`
+```ts 
+constructor(private messageService: MessageService) { }
+```
+>This is a typical *"service-in-service"* scenario: you inject the `MessageService` into the `HeroService` which is injected into the `HeroesComponent`.
+
+### Send a message from HeroService
+Modify the `getHeroes()` method to send a message when the heroes are fetched.
+
+`src/app/hero.service.ts`
+```ts getHeroes(): Observable<Hero[]> {
+  const heroes = of(HEROES);
+  this.messageService.add('HeroService: fetched heroes');
+  return heroes;
+}
+```
+### Display the message from HeroService
+The `MessagesComponent` should display all messages, including the message sent by the `HeroService` when it fetches heroes.
+
+Open `MessagesComponent` and import the `MessageService`.
+
+`src/app/messages/messages.component.ts (import MessageService)`
+```ts 
+import { MessageService } from '../message.service';
+```
+
+Modify the constructor with a parameter that declares a public `messageService` property. Angular will inject the singleton `MessageService` into that property when it creates the `MessagesComponent`.
+
+`src/app/messages/messages.component.ts`
+``` ts 
+constructor(public messageService: MessageService) {}
+```
+The `messageService` property **must be public** because you're going to bind to it in the template.
+
+>Angular only binds to public component properties.
+
+### Bind to the MessageService
+ Replace the CLI-generated `MessagesComponent` template with the following.
+
+ `src/app/messages/messages.component.html`
+```html 
+<div *ngIf="messageService.messages.length">
+
+  <h2>Messages</h2>
+  <button class="clear"
+          (click)="messageService.clear()">Clear messages</button>
+  <div *ngFor='let message of messageService.messages'> {{message}} </div>
+
+</div>
+```
+This template binds directly to the component's `messageService`.
+* The `*ngIf` only displays the messages area if there are messages to show.
+* An `*ngFor` presents the list of messages in repeated <div> elements.
+* An Angular `event binding` binds the button's click event to `MessageService.clear()`.
+
+
+## Add additional messages to hero service
+The following example shows how to send and display a message each time the user clicks on a hero, showing a history of the user's selections. This will be helpful when you get to the next section on `Routing`.
+
+`src/app/heroes/heroes.component.ts`
+``` ts 
+import { Component, OnInit } from '@angular/core';
+
+import { Hero } from '../hero';
+import { HeroService } from '../hero.service';
+import { MessageService } from '../message.service';
+
 @Component({
   selector: 'app-heroes',
   templateUrl: './heroes.component.html',
   styleUrls: ['./heroes.component.css']
 })
-```
-Open the `heroes.component.css` file and paste in the private CSS styles for the `HeroesComponent`. You'll find them in the `final code review` at the bottom of this guide.
+export class HeroesComponent implements OnInit {
 
->Styles and stylesheets identified in @Component metadata are scoped to that specific component. The heroes.component.css styles apply only to the HeroesComponent and don't affect the outer HTML or the HTML in any other component.
+  selectedHero?: Hero;
 
-## Viewing details
-When the user clicks a hero in the list, the component should display the selected hero's details at the bottom of the page.
+  heroes: Hero[] = [];
 
-In this section, you'll listen for the hero item click event and update the hero detail.
+  constructor(private heroService: HeroService, private messageService: MessageService) { }
 
-### Add a click event binding
-Add a click event binding to the `<li>` like this:
+  ngOnInit(): void {
+    this.getHeroes();
+  }
 
-`heroes.component.html (template excerpt`
-```html
-<li *ngFor="let hero of heroes" (click)="onSelect(hero)">
-```
-This is an example of Angular's `event binding` syntax.
+  onSelect(hero: Hero): void {
+    this.selectedHero = hero;
+    this.messageService.add(`HeroesComponent: Selected hero id=${hero.id}`);
+  }
 
-The parentheses around `click` tell Angular to listen for the `<li>` element's `click` event. When the user clicks in the `<li>`, Angular executes the `onSelect(hero)` expression.
-
-In the next section, define an `onSelect()` method in `HeroesComponent` to display the hero that was defined in the `*ngFor `expression.
-
-### Add the click event handler
-Rename the component's `hero` property to `selectedHero` but don't assign it. There is no selected hero when the application starts.
-
-Add the following `onSelect`() method, which assigns the clicked hero from the template to the component's `selectedHero`.
-
-`src/app/heroes/heroes.component.ts (onSelect)`
-```typescript
-selectedHero?: Hero;
-onSelect(hero: Hero): void {
-  this.selectedHero = hero;
+  getHeroes(): void {
+    this.heroService.getHeroes()
+        .subscribe(heroes => this.heroes = heroes);
+  }
 }
 ```
-### Add a details section
- Currently, you have a list in the component template. To click on a hero on the list and reveal details about that hero, you need a section for the details to render in the template. Add the following to `heroes.component.html` beneath the list section:
+Refresh the browser to see the list of heroes, and scroll to the bottom to see the messages from the HeroService. Each time you click a hero, a new message appears to record the selection. Use the Clear messages button to **clear the message** history.
 
- `heroes.component.html (selected hero details)`
-```html
-<h2>{{selectedHero.name | uppercase}} Details</h2>
-<div><span>id: </span>{{selectedHero.id}}</div>
-<div>
-  <label for="hero-name">Hero name: </label>
-  <input id="hero-name" [(ngModel)]="selectedHero.name" placeholder="name">
-</div>
-```
-After the browser refreshes, the application is broken.
-
-Open the browser developer tools and look in the console for an error message like this:
-
-```
-HeroesComponent.html:3 ERROR TypeError: Cannot read property 'name' of undefined
-```
-### What happened?
-
-When the application starts, the `selectedHero` is `undefined` by design.
-
-Binding expressions in the template that refer to properties of `selectedHero`—expressions like `{{selectedHero.name}}`—must fail because there is no selected hero.
-
-### The fix - hide empty details with **ngIf*
-The component should only display the selected hero details if the `selectedHero` exists.
-
-Wrap the hero detail HTML in a `<div>`. Add Angular's *ngIf directive to the `<div>` and set it to selectedHero.
-
->Don't forget the asterisk (*) in front of ngIf. It's a critical part of the syntax.
-
-`src/app/heroes/heroes.component.html (*ngIf)`
-```html
-<div *ngIf="selectedHero">
-
-  <h2>{{selectedHero.name | uppercase}} Details</h2>
-  <div><span>id: </span>{{selectedHero.id}}</div>
-  <div>
-    <label for="hero-name">Hero name: </label>
-    <input id="hero-name" [(ngModel)]="selectedHero.name" placeholder="name">
-  </div>
-
-</div>
-```
-After the browser refreshes, the list of names reappears. The details area is blank. Click a hero in the list of heroes and its details appear. The application seems to be working again. The heroes appear in a list and details about the clicked hero appear at the bottom of the page.
-
-### Why it works
-When `selectedHero` is undefined, the `ngIf` removes the hero detail from the DOM. There are no `selectedHero` bindings to consider.
-
-When the user picks a hero, `selectedHero` has a value and `ngIf` puts the hero detail into the DOM.
-
-###  Style the selected hero
-To help identify the selected hero, you can use the `.selected` CSS class in the `styles you added earlier`. To apply the `.selected` class to the `<li>` when the user clicks it, use class binding.
-![Demo app](./img/heroes-list-selected.png)
-
-Angular's `class binding` can add and remove a CSS class conditionally. Add `[class.some-css-class]="some-condition" `to the element you want to style.
-
-Add the following [class.selected] binding to the `<li>` in the HeroesComponent template:
-
-`heroes.component.html (toggle the 'selected' CSS class)`
-```html
-[class.selected]="hero === selectedHero"
-```
-When the current row hero is the same as the selectedHero, Angular adds the selected CSS class. When the two heroes are different, Angular removes the class.
-
-The finished `<li>` looks like this:
-
-`heroes.component.html (list item hero)`
-```html
-<li *ngFor="let hero of heroes"
-  [class.selected]="hero === selectedHero"
-  (click)="onSelect(hero)">
-  <span class="badge">{{hero.id}}</span> {{hero.name}}
-</li>
-```
 # Summary
-* The Tour of Heroes application displays a list of heroes with a detail view.
-* The user can select a hero and see that hero's details.
-* You used `*ngFor` to display a list.
-* You used` *ngIf `to conditionally include or exclude a block of HTML.
-* You can toggle a CSS style class with a `class` binding.
-
-# Create a feature component
-At the moment, the `HeroesComponent` displays both the list of heroes and the selected hero's details.
-
-Keeping all features in one component as the application grows will not be maintainable. You'll want to split up large components into smaller sub-components, each focused on a specific task or workflow.
-
-In this page, you'll take the first step in that direction by moving the hero details into a separate, reusable `HeroDetailComponent`.
-
-The `HeroesComponent` will only present the list of heroes. The `HeroDetailComponent` will present details of a selected hero.
-
-## Make the HeroDetailComponent
-Use the Angular CLI to generate a new component named hero-detail.
-```
-ng generate component hero-detail
-```
-
-The command scaffolds the following:
-
-* Creates a directory `src/app/hero-detail`.
-
-Inside that directory four files are generated:
-
-* A CSS file for the component styles.
-* An HTML file for the component template.
-* A TypeScript file with a component class named `HeroDetailComponent`.
-* A test file for the `HeroDetailComponent` class.
-
-The command also adds the `HeroDetailComponent` as a declaration in the `@NgModule` decorator of the `src/app/app.module.ts` file.
-
-## Write the template
-Cut the HTML for the hero detail from the bottom of the `HeroesComponent` template and paste it over the generated boilerplate in the `HeroDetailComponent` template.
-
-The pasted HTML refers to a `selectedHero`. The new `HeroDetailComponent` can present any hero, not just a selected hero. So replace "selectedHero" with "hero" everywhere in the template.
-
-When you're done, the `HeroDetailComponent` template should look like this:
-`src/app/hero-detail/hero-detail.component.html`
-```html
-<div *ngIf="hero">
-
-  <h2>{{hero.name | uppercase}} Details</h2>
-  <div><span>id: </span>{{hero.id}}</div>
-  <div>
-    <label for="hero-name">Hero name: </label>
-    <input id="hero-name" [(ngModel)]="hero.name" placeholder="name">
-  </div>
-
-</div>
-```
-
-## Add the @Input() hero property
-The `HeroDetailComponent` template binds to the component's `hero` property which is of type `Hero`.
-
-Open the `HeroDetailComponent` class file and import the `Hero` symbol.
-
-`src/app/hero-detail/hero-detail.component.ts (import Hero)`
-```javascript
-import { Hero } from '../hero';
-```
-
-The `hero` property _`must be an Input property`_, annotated with the `@Input()` decorator, because the _external_ `HeroesComponent will bind to it` like this.
-```html
-<app-hero-detail [hero]="selectedHero"></app-hero-detail>
-```
-Amend the `@angular/core` import statement to include the `Input` symbol.
-
-`src/app/hero-detail/hero-detail.component.ts (import Input)`
-```typescript
-import { Component, OnInit, Input } from '@angular/core';
-```
-Add a `hero` property, preceded by the `@Input()` decorator.
-
-`src/app/hero-detail/hero-detail.component.ts`
-```typescript
-@Input() hero?: Hero;
-```
-
-That's the only change you should make to the `HeroDetailComponent` class. There are no more properties. There's no presentation logic. This component only receives a hero object through its `hero` property and displays it.
-
-## Show the HeroDetailComponent
-
-The `HeroesComponent` used to display the hero details on its own, before you removed that portion of the template. This section guides you through delegating logic to the `HeroDetailComponent`.
-
-The two components will have a parent/child relationship. The parent `HeroesComponent` will control the child `HeroDetailComponent` by sending it a new hero to display whenever the user selects a hero from the list.
-
-You won't change the `HeroesComponent` _class_ but you will change its _template_.
-
-## Update the HeroesComponent template
-
-The `HeroDetailComponent` selector is `'app-hero-detail'`. Add an `<app-hero-detail>` element near the bottom of the `HeroesComponent` template, where the hero detail view used to be.
-
-Bind the `HeroesComponent.selectedHero` to the element's `hero` property like this.
-
-`heroes.component.html (HeroDetail binding)`
-```html
-<app-hero-detail [hero]="selectedHero"></app-hero-detail>
-```
-
-`[hero]="selectedHero"` is an Angular `property binding`.
-
-It's a _one way_ data binding from the `selectedHero` property of the `HeroesComponent` to the `hero` property of the target element, which maps to the `hero` property of the `HeroDetailComponent`.
-
-Now when the user clicks a hero in the list, the `selectedHero` changes. When the `selectedHero` changes, the _property binding_ updates `hero` and the `HeroDetailComponent` displays the new hero.
-
-The revised `HeroesComponent` template should look like this:
-
-`heroes.component.html`
-```html
-<h2>My Heroes</h2>
-
-<ul class="heroes">
-  <li *ngFor="let hero of heroes"
-    [class.selected]="hero === selectedHero"
-    (click)="onSelect(hero)">
-    <span class="badge">{{hero.id}}</span> {{hero.name}}
-  </li>
-</ul>
-
-<app-hero-detail [hero]="selectedHero"></app-hero-detail>
-```
-The browser refreshes and the application starts working again as it did before.
-
-## What changed?
-As before, whenever a user clicks on a hero name, the hero detail appears below the hero list. Now the `HeroDetailComponent` is presenting those details instead of the `HeroesComponent`.
-
-Refactoring the original `HeroesComponent` into two components yields benefits, both now and in the future:
-
-1. You reduced the `HeroesComponent` responsibilities.
-
-2.  You can evolve the `HeroDetailComponent` into a rich hero editor without touching the parent `HeroesComponent`.
-
-3. You can evolve the `HeroesComponent` without touching the hero detail view.
-
-4. You can re-use the `HeroDetailComponent` in the template of some future component.
-
-## Summary
-* You created a separate, reusable HeroDetailComponent.
-* You used a property binding to give the parent HeroesComponent control over the child HeroDetailComponent.
-* You used the @Input decorator to make the hero property available for binding by the external HeroesComponent.
+* You refactored data access to the `HeroService` class.
+* You registered the `HeroService` as the provider of its service at the root level so that it can be injected anywhere in the application.
+* You used `Angular Dependency Injection` to inject it into a component.
+* You gave the `HeroService` get data method an asynchronous signature.
+* You discovered `Observable` and the RxJS Observable library.
+* You used RxJS `of()` to return an observable of mock heroes `(Observable<Hero[]>)`.
+The component's `ngOnInit` lifecycle hook calls the `HeroService` method, not the constructor.
+* You created a `MessageService` for loosely-coupled communication between classes.
+* The `HeroService` injected into a component is created with another injected service, `MessageService`.
 
 ### *End of session 13*
+
+### [NEXT: Session14](session14.md)

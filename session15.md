@@ -1,551 +1,708 @@
 ### *Session 15*
 
-# Add navigation with routing
-There are new requirements for the Tour of Heroes app:
+# Get data from a server
+In this tutorial, you'll add the following data persistence features with help from Angular's `HttpClient`.
 
-* Add a _Dashboard_ view.
-* Add the ability to navigate between the _Heroes_ and _Dashboard_ views.
-* When users click a hero name in either view, navigate to a detail view of the selected hero.
-* When users click a _deep link_ in an email, open the detail view for a particular hero.
+* The HeroService gets hero data with HTTP requests.
+* Users can add, edit, and delete heroes and save these changes over HTTP.
+* Users can search for heroes by name.
 
-When you’re done, users will be able to navigate the application like this:
+## Enable HTTP services
+`HttpClient` is Angular's mechanism for communicating with a remote server over HTTP.
 
-![Demo app](./img/nav-diagram.png)
+Make `HttpClient` available everywhere in the application in two steps. First, add it to the root `AppModule` by importing it:
 
-## Add the AppRoutingModule
-In Angular, the best practice is to load and configure the router in a separate, top-level module that is dedicated to routing and imported by the root `AppModule`.
+`src/app/app.module.ts (HttpClientModule import)`
+```ts 
+import { HttpClientModule } from '@angular/common/http';
+```
 
-By convention, the module class name is `AppRoutingModule` and it belongs in the `app-routing.module.ts` in the `src/app` folder.
+Next, still in the `AppModule`, add `HttpClientModule` to the `imports` array:
 
-Use the CLI to generate it.
-`ng generate module app-routing --flat --module=app`
-
->--flat puts the file in src/app instead of its own folder.<br>
->--module=app tells the CLI to register it in the imports array of the AppModule.
-
-The generated file looks like this:
-`src/app/app-routing.module.ts (generated)`
-```typescript
-import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
-
+`src/app/app.module.ts (imports array excerpt)`
+```ts 
 @NgModule({
   imports: [
-    CommonModule
+    HttpClientModule,
   ],
-  declarations: []
 })
-export class AppRoutingModule { }
 ```
-Replace it with the following:
-`src/app/app-routing.module.ts (updated)`
-```typescript
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
-import { HeroesComponent } from './heroes/heroes.component';
+## Simulate a data server
+This tutorial sample mimics communication with a remote data server by using the `In-memory Web API` module.
 
-const routes: Routes = [
-  { path: 'heroes', component: HeroesComponent }
-];
+After installing the module, the application will make requests to and receive responses from the `HttpClient` without knowing that the In-memory Web API is intercepting those requests, applying them to an in-memory data store, and returning simulated responses.
 
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
+By using the In-memory Web API, you won't have to set up a server to learn about `HttpClient`.
+
+>**Important**: the In-memory Web API module has nothing to do with HTTP in Angular.
+<br>
+If you're reading this tutorial to learn about HttpClient, you can skip over this step. 
+If you're coding along with this tutorial, stay here and add the In-memory Web API now.
+
+Install the In-memory Web API package from npm with the following command:
+
+```
+npm install angular-in-memory-web-api --save
+```
+In the `AppModule`, import the `HttpClientInMemoryWebApiModule` and the `InMemoryDataService` class, which you will create in a moment.
+
+`src/app/app.module.ts (In-memory Web API imports)`
+
+```ts import { HttpClientInMemoryWebApiModule } from 'angular-in-memory-web-api';
+import { InMemoryDataService } from './in-memory-data.service';
+```
+After the `HttpClientModule`, add the `HttpClientInMemoryWebApiModule` to the `AppModule` `imports` array and configure it with the `InMemoryDataService`.
+
+`src/app/app.module.ts (imports array excerpt)`
+``` ts 
+HttpClientModule,
+
+// The HttpClientInMemoryWebApiModule module intercepts HTTP requests
+// and returns simulated server responses.
+// Remove it when a real server is ready to receive requests.
+HttpClientInMemoryWebApiModule.forRoot(
+  InMemoryDataService, { dataEncapsulation: false }
+)
+```
+The `forRoot()` configuration method takes an `InMemoryDataService` class that primes the in-memory database.
+
+Generate the class `src/app/in-memory-data.service.ts` with the following command:
+
+```
+ng generate service InMemoryData
+ ```
+Replace the default contents of in-memory-data.service.ts with the following:
+
+`src/app/in-memory-data.service.ts`
+
+```ts
+import { Injectable } from '@angular/core';
+import { InMemoryDbService } from 'angular-in-memory-web-api';
+import { Hero } from './hero';
+
+@Injectable({
+  providedIn: 'root',
 })
-export class AppRoutingModule { }
+export class InMemoryDataService implements InMemoryDbService {
+  createDb() {
+    const heroes = [
+      { id: 11, name: 'Dr Nice' },
+      { id: 12, name: 'Narco' },
+      { id: 13, name: 'Bombasto' },
+      { id: 14, name: 'Celeritas' },
+      { id: 15, name: 'Magneta' },
+      { id: 16, name: 'RubberMan' },
+      { id: 17, name: 'Dynama' },
+      { id: 18, name: 'Dr IQ' },
+      { id: 19, name: 'Magma' },
+      { id: 20, name: 'Tornado' }
+    ];
+    return {heroes};
+  }
+
+  // Overrides the genId method to ensure that a hero always has an id.
+  // If the heroes array is empty,
+  // the method below returns the initial number (11).
+  // if the heroes array is not empty, the method below returns the highest
+  // hero id + 1.
+  genId(heroes: Hero[]): number {
+    return heroes.length > 0 ? Math.max(...heroes.map(hero => hero.id)) + 1 : 11;
+  }
+}
+ ```
+ The `in-memory-data.service.ts` file will take over the function of `mock-heroes.ts`. However, don't delete `mock-heroes.ts` yet, as you still need it for a few more steps of this tutorial.
+
+When the server is ready, you'll detach the In-memory Web API, and the application's requests will go through to the server.
+
+## Heroes and HTTP
+In the `HeroService`, import `HttpClient` and `HttpHeaders`:
+
+`src/app/hero.service.ts (import HTTP symbols)`
+
+``` ts 
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 ```
-First, the `app-routing.module.ts` file imports `RouterModule` and `Routes` so the application can have routing functionality. The next import, `HeroesComponent`, will give the Router somewhere to go once you configure the routes.
+Still in the `HeroService`, inject `HttpClient` into the constructor in a private property called `http`.
 
-Notice that the `CommonModule` references and `declarations` array are unnecessary, so are no longer part of `AppRoutingModule`. The following sections explain the rest of the `AppRoutingModule` in more detail.
+`src/app/hero.service.ts`
 
-## Routes
-The next part of the file is where you configure your routes. _Routes_ tell the Router which view to display when a user clicks a link or pastes a URL into the browser address bar.
+``` ts 
+constructor(
+  private http: HttpClient,
+  private messageService: MessageService) { }
+  ```
+Notice that you keep injecting the `MessageService` but since you'll call it so frequently, wrap it in a private `log() `method:
 
-Since `app-routing.module.ts` already imports `HeroesComponent`, you can use it in the `routes` array:
-
-`src/app/app-routing.module.ts`
-```typescript
-const routes: Routes = [
-  { path: 'heroes', component: HeroesComponent }
-];
+`src/app/hero.service.ts`
+``` ts 
+/** Log a HeroService message with the MessageService */
+private log(message: string) {
+  this.messageService.add(`HeroService: ${message}`);
+}
 ```
-A typical Angular `Route` has two properties:
+Define the `heroesUrl` of the form `:base/:collectionName` with the address of the heroes resource on the server. Here `base` is the resource to which requests are made, and `collectionName` is the heroes data object in the `in-memory-data-service.ts`.
 
-`path`: a string that matches the URL in the browser address bar.
-`component`: the component that the router should create when navigating to this route.
-
-This tells the router to match that URL to `path: 'heroes'` and display the `HeroesComponent` when the URL is something like `localhost:4200/heroes`.
-
-## `RouterModule.forRoot()`
-The `@NgModule` metadata initializes the router and starts it listening for browser location changes.
-
-The following line adds the `RouterModule` to the `AppRoutingModule imports` array and configures it with the `routes` in one step by calling `RouterModule.forRoot()`:
-`src/app/app-routing.module.ts`
-```typescript
-imports: [ RouterModule.forRoot(routes) ],
+`src/app/hero.service.ts`
+``` ts 
+private heroesUrl = 'api/heroes';  // URL to web api
 ```
->The method is called `forRoot()` because you configure the router at the application's root level. The `forRoot()` method supplies the service providers and directives needed for routing, and performs the initial navigation based on the current browser URL.
+### Get heroes with HttpClient
+The current `HeroService.getHeroes()` uses the RxJS `of()` function to return an array of mock heroes as an `Observable<Hero[]>`.
 
-Next, `AppRoutingModule` exports `RouterModule` so it will be available throughout the application.
+`src/app/hero.service.ts (getHeroes with RxJs 'of()')`
 
-`src/app/app-routing.module.ts (exports array)`
-```typescript
-exports: [ RouterModule ]
+``` ts
+getHeroes(): Observable<Hero[]> {
+  const heroes = of(HEROES);
+  return heroes;
+}
+```
+Convert that method to use HttpClient as follows:
+`src/app/hero.service.ts`
+``` ts 
+/** GET heroes from the server */
+getHeroes(): Observable<Hero[]> {
+  return this.http.get<Hero[]>(this.heroesUrl)
+}
+```
+Refresh the browser. The hero data should successfully load from the mock server.
+
+You've swapped `of()` for `http.get()` and the application keeps working without any other changes because both functions return an `Observable<Hero[]>`.
+
+### `HttpClient` methods return one value
+All `HttpClient` methods return an RxJS `Observable` of something.
+
+HTTP is a request/response protocol. You make a request, it returns a single response.
+
+In general, an observable can return multiple values over time. An observable from `HttpClient` always emits a single value and then completes, never to emit again.
+
+This particular `HttpClient.get()` call returns an `Observable<Hero[]>`; that is, "*an observable of hero arrays*". In practice, it will only return a single hero array.
+
+### HttpClient.get() returns response data
+
+`HttpClient.get()` returns the body of the response as an untyped JSON object by default. Applying the optional type specifier, `<Hero[]>` , adds TypeScript capabilities, which reduce errors during compile time.
+
+The server's data API determines the shape of the JSON data. The Tour of `Heroes` data API returns the hero data as an array.
+
+>Other APIs may bury the data that you want within an object. You might have to dig that data out by processing the `Observable` result with the RxJS` map()` operator.
+<br>
+Although not discussed here, there's an example of `map()` in the `getHeroNo404()` method included in the sample source code.
+
+### Error handling
+Things go wrong, especially when you're getting data from a remote server. The `HeroService.getHeroes()` method should catch errors and do something appropriate.
+
+To catch errors, you **"pipe"**  **the observable** result from `http.get()` through an RxJS `catchError()` operator.
+
+Import the `catchError` symbol from `rxjs/operators`, along with some other operators you'll need later
+
+`src/app/hero.service.ts`
+
+``` ts 
+import { catchError, map, tap } from 'rxjs/operators';
 ```
 
-## Add `RouterOutlet`
-Open the `AppComponent` template and replace the `<app-heroes>` element with a `<router-outlet>` element.
+Now extend the observable result with the `pipe()` method and give it a `catchError() `operator.
 
-`src/app/app.component.html (router-outlet)`
-```html
-<h1>{{title}}</h1>
-<router-outlet></router-outlet>
-<app-messages></app-messages>
+`src/app/hero.service.ts`
+
+``` ts
+getHeroes(): Observable<Hero[]> {
+  return this.http.get<Hero[]>(this.heroesUrl)
+    .pipe(
+      catchError(this.handleError<Hero[]>('getHeroes', []))
+    );
+}
 ```
 
-The `AppComponent` template no longer needs `<app-heroes>` because the application will only display the `HeroesComponent` when the user navigates to it.
+The `catchError()` operator intercepts an `Observable` **that failed**. The operator then passes the error to the error handling function.
 
-The `<router-outlet>` tells the router where to display routed views.
+The following `handleError()` method reports the error and then returns an innocuous result so that the application keeps working.
 
->The `RouterOutlet` is one of the router directives that became available to the `AppComponent` because `AppModule` imports `AppRoutingModule` which exported `RouterModule`. The `ng generate` command you ran at the start of this tutorial added this import because of the `--module=app` flag. If you manually created `app-routing.module.ts` or used a tool other than the CLI to do so, you'll need to import `AppRoutingModule` into `app.module.ts` and add it to the `imports` array of the `NgModule`.
+### handleError
 
-## Try it
+The following `handleError()` will be shared by many `HeroService` methods so it's generalized to meet their different needs.
 
-You should still be running with this CLI command.
+Instead of handling the error directly, it returns an error handler function to `catchError` that it has configured with both the name of the operation that failed and a safe return value.
 
+`src/app/hero.service.ts`
+``` ts 
+/**
+ * Handle Http operation that failed.
+ * Let the app continue.
+ * @param operation - name of the operation that failed
+ * @param result - optional value to return as the observable result
+ */
+private handleError<T>(operation = 'operation', result?: T) {
+  return (error: any): Observable<T> => {
+
+    // TODO: send the error to remote logging infrastructure
+    console.error(error); // log to console instead
+
+    // TODO: better job of transforming error for user consumption
+    this.log(`${operation} failed: ${error.message}`);
+
+    // Let the app keep running by returning an empty result.
+    return of(result as T);
+  };
+}
 ```
-ng serve
+
+After reporting the error to the console, the handler constructs a user friendly message and returns a safe value to the application so the application can keep working.
+
+Because each service method returns a different kind of `Observable` result, `handleError()` takes a type parameter so it can return the safe value as the type that the application expects.
+
+### Tap into the Observable
+The `HeroService` methods will **tap** into the flow of observable values and send a message, using the `log()` method, to the message area at the bottom of the page.
+
+They'll do that with the RxJS `tap()` operator, which looks at the observable values, does something with those values, and passes them along. The `tap()` call back doesn't touch the values themselves.
+
+Here is the final version of `getHeroes() `with the `tap()` that logs the operation.
+
+`src/app/hero.service.ts`
+
+``` ts 
+/** GET heroes from the server */
+getHeroes(): Observable<Hero[]> {
+  return this.http.get<Hero[]>(this.heroesUrl)
+    .pipe(
+      tap(_ => this.log('fetched heroes')),
+      catchError(this.handleError<Hero[]>('getHeroes', []))
+    );
+}
 ```
 
-The browser should refresh and display the application title but not the list of heroes.
+## Get hero by id
 
-Look at the browser's address bar. The URL ends in `/`. The route path to `HeroesComponent` is `/heroes`.
+Most web APIs support a get by id request in the form `:baseURL/:id.`
 
-Append `/heroes` to the URL in the browser address bar. You should see the familiar heroes master/detail view.
+Here, the base URL is the `heroesURL` defined in the `Heroes and HTTP` section (`api/heroes`) and id is the number of the hero that you want to retrieve. For example, `api/heroes/11`.
 
-Remove `/heroes` from the URL in the browser address bar. The browser should refresh and display the application title but not the list of heroes.
+Update the `HeroService` `getHero()` method with the following to make that request:
 
-## Add a navigation link (`routerLink`)
-Ideally, users should be able to click a link to navigate rather than pasting a route URL into the address bar.
+`src/app/hero.service.ts`
 
-Add a `<nav>` element and, within that, an anchor element that, when clicked, triggers navigation to the `HeroesComponent`. The revised `AppComponent` template looks like this:
-`src/app/app.component.html (heroes RouterLink)`
-```html
-<h1>{{title}}</h1>
-<nav>
-  <a routerLink="/heroes">Heroes</a>
-</nav>
-<router-outlet></router-outlet>
-<app-messages></app-messages>
+``` ts /** GET hero by id. Will 404 if id not found */
+getHero(id: number): Observable<Hero> {
+  const url = `${this.heroesUrl}/${id}`;
+  return this.http.get<Hero>(url).pipe(
+    tap(_ => this.log(`fetched hero id=${id}`)),
+    catchError(this.handleError<Hero>(`getHero id=${id}`))
+  );
+}
 ```
-A `routerLink attribute` is set to `"/heroes"`, the string that the router matches to the route to `HeroesComponent`. The `routerLink` is the selector for the `RouterLink directive` that turns user clicks into router navigations. It's another of the public directives in the `RouterModule`.
 
-The browser refreshes and displays the application title and heroes link, but not the heroes list.
+There are three significant differences from `getHeroes()`:
 
-Click the link. The address bar updates to `/heroes` and the list of heroes appears.
+`getHero()` constructs a request URL with the desired hero's id.
+The server should respond with a single hero rather than an array of heroes.
+`getHero()` returns an `Observable<Hero>` ("*an observable of Hero objects*") rather than an observable of hero *arrays* .
 
-## Add a dashboard view
-Routing makes more sense when there are multiple views. So far there's only the heroes view.
+## Update heroes
+Edit a hero's name in the hero detail view. As you type, the hero name updates the heading at the top of the page. But when you click the "go back button", the changes are lost.
 
-Add a `DashboardComponent` using the CLI:
+If you want changes to persist, you must write them back to the server.
 
+At the end of the hero detail template, add a save button with a `click` event binding that invokes a new component method named `save()`.
+
+`src/app/hero-detail/hero-detail.component.html (save)`
+
+``` html
+ <button (click)="save()">save</button>
 ```
-ng generate component dashboard
+
+In the `HeroDetail` component class, add the following `save()` method, which persists hero name changes using the hero service `updateHero()` method and then navigates back to the previous view.
+
+`src/app/hero-detail/hero-detail.component.ts (save)`
+```ts
+save(): void {
+  if (this.hero) {
+    this.heroService.updateHero(this.hero)
+      .subscribe(() => this.goBack());
+  }
+}
 ```
-The CLI generates the files for the `DashboardComponent` and declares it in `AppModule`.
+### Add HeroService.updateHero()
+The overall structure of the `updateHero()` method is similar to that of `getHeroes()`, but it uses `http.put()` to persist the changed hero on the server. Add the following to the `HeroService`.
 
-Replace the default file content in these three files as follows:
+`src/app/hero.service.ts (update)`
+``` ts
+/** PUT: update the hero on the server */
+updateHero(hero: Hero): Observable<any> {
+  return this.http.put(this.heroesUrl, hero, this.httpOptions).pipe(
+    tap(_ => this.log(`updated hero id=${hero.id}`)),
+    catchError(this.handleError<any>('updateHero'))
+  );
+}
+```
+The HttpClient.put() method takes three parameters:
 
-`src/app/dashboard/dashboard.component.html`
+* the URL
+* the data to update (the modified hero in this case)
+* options
 
-```html
-<h2>Top Heroes</h2>
-<div class="heroes-menu">
-  <a *ngFor="let hero of heroes">
-    {{hero.name}}
-  </a>
+The URL is unchanged. The heroes web API knows which hero to update by looking at the hero's `id`.
+
+The heroes web API expects a special header in HTTP save requests. That header is in the `httpOptions` constant defined in the `HeroService`. Add the following to the `HeroService` class.
+
+`src/app/hero.service.ts`
+``` ts httpOptions = {
+  headers: new HttpHeaders({ 'Content-Type': 'application/json' })
+};
+```
+
+Refresh the browser, change a hero name and save your change. The `save(`) method in `HeroDetailComponent` navigates to the previous view. The hero now appears in the list with the changed name.
+
+## Add a new hero
+
+To add a hero, this application only needs the hero's name. You can use an` <input>` element paired with an add button.
+
+Insert the following into the `HeroesComponent` template, after the heading:
+
+`src/app/heroes/heroes.component.html (add)`
+```html <div>
+  <label for="new-hero">Hero name: </label>
+  <input id="new-hero" #heroName />
+
+  <!-- (click) passes input value to add() and then clears the input -->
+  <button class="add-button" (click)="add(heroName.value); heroName.value=''">
+    Add hero
+  </button>
 </div>
 ```
 
-`src/app/dashboard/dashboard.component.ts`
-```typescript
-import { Component, OnInit } from '@angular/core';
-import { Hero } from '../hero';
-import { HeroService } from '../hero.service';
+In response to a click event, call the component's click handler, `add()`, and then clear the input field so that it's ready for another name. Add the following to the `HeroesComponent` class:
 
-@Component({
-  selector: 'app-dashboard',
-  templateUrl: './dashboard.component.html',
-  styleUrls: [ './dashboard.component.css' ]
-})
-export class DashboardComponent implements OnInit {
-  heroes: Hero[] = [];
-
-  constructor(private heroService: HeroService) { }
-
-  ngOnInit(): void {
-    this.getHeroes();
-  }
-
-  getHeroes(): void {
-    this.heroService.getHeroes()
-      .subscribe(heroes => this.heroes = heroes.slice(1, 5));
-  }
+`src/app/heroes/heroes.component.ts (add)`
+``` ts add(name: string): void {
+  name = name.trim();
+  if (!name) { return; }
+  this.heroService.addHero({ name } as Hero)
+    .subscribe(hero => {
+      this.heroes.push(hero);
+    });
 }
 ```
 
-`src/app/dashboard/dashboard.component.css`
-```css
-/* DashboardComponent's private CSS styles */
+When the given name is non-blank, the handler creates a `Hero`-like object from the name (it's only missing the `id`) and passes it to the services `addHero()` method.
 
-h2 {
-  text-align: center;
-}
+When `addHero()` saves successfully, the `subscribe()` callback receives the new hero and pushes it into to the `heroes` list for display.
 
-.heroes-menu {
-  padding: 0;
-  margin: auto;
-  max-width: 1000px;
+Add the following `addHero()` method to the `HeroService` class.
 
-  /* flexbox */
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-around;
-  align-content: flex-start;
-  align-items: flex-start;
-}
-
-a {
-  background-color: #3f525c;
-  border-radius: 2px;
-  padding: 1rem;
-  font-size: 1.2rem;
-  text-decoration: none;
-  display: inline-block;
-  color: #fff;
-  text-align: center;
-  width: 100%;
-  min-width: 70px;
-  margin: .5rem auto;
-  box-sizing: border-box;
-
-  /* flexbox */
-  order: 0;
-  flex: 0 1 auto;
-  align-self: auto;
-}
-
-@media (min-width: 600px) {
-  a {
-    width: 18%;
-    box-sizing: content-box;
-  }
-}
-
-a:hover {
-  background-color: #000;
+`src/app/hero.service.ts (addHero)`
+``` ts 
+/** POST: add a new hero to the server */
+addHero(hero: Hero): Observable<Hero> {
+  return this.http.post<Hero>(this.heroesUrl, hero, this.httpOptions).pipe(
+    tap((newHero: Hero) => this.log(`added hero w/ id=${newHero.id}`)),
+    catchError(this.handleError<Hero>('addHero'))
+  );
 }
 ```
 
-The template presents a grid of hero name links.
+`addHero()` differs from `updateHero()` in two ways:
 
-* The `*ngFor` repeater creates as many links as are in the component's `heroes` array.
-* The links are styled as colored blocks by the `dashboard.component.css`.
-* The links don't go anywhere yet but they will shortly.
+* It calls` HttpClient.post()` instead of `put()`.
+* It expects the server to generate an id for the new hero, which it returns in the `Observable<Hero`> to the caller.
 
-The class is similar to the `HeroesComponent` class.
-* It defines a `heroes` array property.
-* The constructor expects Angular to inject the `HeroService` into a private `heroService` property.
-* The `ngOnInit()` lifecycle hook calls `getHeroes()`.
-This `getHeroes()` returns the sliced list of heroes at positions 1 and 5, returning only four of the Top Heroes (2nd, 3rd, 4th, and 5th).
+Refresh the browser and add some heroes.
 
-`src/app/dashboard/dashboard.component.ts`
-```typescript
-getHeroes(): void {
-  this.heroService.getHeroes()
-    .subscribe(heroes => this.heroes = heroes.slice(1, 5));
-}
-```
+## Delete a hero
 
-## Add the dashboard route
+Each hero in the heroes list should have a delete button.
 
-To navigate to the dashboard, the router needs an appropriate route.
+Add the following button element to the `HeroesComponent` template, after the hero name in the repeated `<li>` element.
 
-Import the `DashboardComponent` in the `app-routing-module.ts` file.
+`src/app/heroes/heroes.component.html`
+``` html 
+<button class="delete" title="delete hero"
+  (click)="delete(hero)">x</button>
+  ```
+  The HTML for the list of heroes should look like this:
 
-`src/app/app-routing.module.ts (import DashboardComponent)`
-```typescript
-import { DashboardComponent } from './dashboard/dashboard.component';
-```
-
-Add a route to the `routes` array that matches a path to the `DashboardComponent`.
-
-`src/app/app-routing.module.ts`
-
-```typescript
-{ path: 'dashboard', component: DashboardComponent },
-```
-
-## Add a default route
-When the application starts, the browser's address bar points to the web site's root. That doesn't match any existing route so the router doesn't navigate anywhere. The space below the `<router-outlet>` is blank.
-
-To make the application navigate to the dashboard automatically, add the following route to the `routes` array.
-`src/app/app-routing.module.ts`
-```typescript
-{ path: '', redirectTo: '/dashboard', pathMatch: 'full' },
-```
-This route redirects a URL that fully matches the empty path to the route whose path is `'/dashboard'`.
-
-After the browser refreshes, the router loads the `DashboardComponent` and the browser address bar shows the `/dashboard` URL.
-
-## Add dashboard link to the shell
-The user should be able to navigate back and forth between the `DashboardComponent` and the `HeroesComponent` by clicking links in the navigation area near the top of the page.
-
-Add a dashboard navigation link to the `AppComponent` shell template, just above the _Heroes_ link.
-
-`src/app/app.component.html`
-```html
-<h1>{{title}}</h1>
-<nav>
-  <a routerLink="/dashboard">Dashboard</a>
-  <a routerLink="/heroes">Heroes</a>
-</nav>
-<router-outlet></router-outlet>
-<app-messages></app-messages>
-```
-After the browser refreshes you can navigate freely between the two views by clicking the links.
-
-## Navigating to hero details
-The `HeroDetailComponent` displays details of a selected hero. At the moment the `HeroDetailComponent` is only visible at the bottom of the `HeroesComponent`
-
-The user should be able to get to these details in three ways.
-1. By clicking a hero in the dashboard.
-2. By clicking a hero in the heroes list.
-3. By pasting a "deep link" URL into the browser address bar that identifies the hero to display.
-
-In this section, you'll enable navigation to the `HeroDetailComponent` and liberate it from the `HeroesComponent`.
-
-## Delete _hero details_ from HeroesComponent
-When the user clicks a hero item in the `HeroesComponent`, the application should navigate to the `HeroDetailComponent`, replacing the heroes list view with the hero detail view. The heroes list view should no longer show hero details as it does now.
-
-Open the `HeroesComponent` template (`heroes/heroes.component.html`) and delete the `<app-hero-detail>` element from the bottom.
-
-Clicking a hero item now does nothing. You'll fix that shortly after you enable routing to the `HeroDetailComponent`.
-
-## Add a _hero detail_ route
-A URL like `~/detail/11` would be a good URL for navigating to the Hero Detail view of the hero whose `id` is `11`.
-
-Open `app-routing.module.ts` and import `HeroDetailComponent`.
-
-`src/app/app-routing.module.ts (import HeroDetailComponent)`
-```typescript
-import { HeroDetailComponent } from './hero-detail/hero-detail.component';
-```
-Then add a _parameterized_ route to the `routes` array that matches the path pattern to the _hero detail_ view.
-
-`src/app/app-routing.module.ts`
-```typescript
-{ path: 'detail/:id', component: HeroDetailComponent },
-```
-
-The colon (:) in the `path` indicates that `:id` is a placeholder for a specific hero `id`.
-
-At this point, all application routes are in place.
-
-`src/app/app-routing.module.ts (all routes)`
-```typescript
-const routes: Routes = [
-  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
-  { path: 'dashboard', component: DashboardComponent },
-  { path: 'detail/:id', component: HeroDetailComponent },
-  { path: 'heroes', component: HeroesComponent }
-];
-```
-
-## DashboardComponent hero links
-The `DashboardComponent` hero links do nothing at the moment.
-
-Now that the router has a route to `HeroDetailComponent`, fix the dashboard hero links to navigate using the _parameterized_ dashboard route.
-
-`src/app/dashboard/dashboard.component.html (hero links)`
-```html
-<a *ngFor="let hero of heroes"
-  routerLink="/detail/{{hero.id}}">
-  {{hero.name}}
-</a>
-```
-You're using Angular `interpolation binding` within the `*ngFor` repeater to insert the current iteration's `hero.id` into each `routerLink`.
-
-## HeroesComponent hero links
-The hero items in the `HeroesComponent` are `<li>` elements whose click events are bound to the component's `onSelect()` method.
-
-`src/app/heroes/heroes.component.html (list with onSelect)`
-```html
-<ul class="heroes">
-  <li *ngFor="let hero of heroes"
-    [class.selected]="hero === selectedHero"
-    (click)="onSelect(hero)">
-    <span class="badge">{{hero.id}}</span> {{hero.name}}
-  </li>
-</ul>
-```
-Strip the `<li>` back to just its `*ngFor`, wrap the badge and name in an anchor element (`<a>`), and add a `routerLink` attribute to the anchor that is the same as in the dashboard template
-
-`src/app/heroes/heroes.component.html (list with links)`
-```html
+`  src/app/heroes/heroes.component.html (list of heroes)`
+``` html 
 <ul class="heroes">
   <li *ngFor="let hero of heroes">
     <a routerLink="/detail/{{hero.id}}">
       <span class="badge">{{hero.id}}</span> {{hero.name}}
     </a>
+    <button class="delete" title="delete hero"
+      (click)="delete(hero)">x</button>
   </li>
 </ul>
 ```
-You'll have to fix the private stylesheet (heroes.component.css) to make the list look as it did before. Revised styles are in the final code review at the bottom of this guide.
+To position the delete button at the far right of the hero entry, add some CSS to the `heroes.component.css`. 
 
-## Remove dead code (optional)
-While the `HeroesComponent` class still works, the `onSelect()` method and `selectedHero` property are no longer used.
+Add the `delete()` handler to the component class.
 
-It's nice to tidy up and you'll be grateful to yourself later. Here's the class after pruning away the dead code.
+`src/app/heroes/heroes.component.ts (delete)`
+``` ts 
+delete(hero: Hero): void {
+  this.heroes = this.heroes.filter(h => h !== hero);
+  this.heroService.deleteHero(hero.id).subscribe();
+}
+```
+Although the component delegates hero deletion to the `HeroService`, it remains responsible for updating its own list of heroes. The component's `delete()` method immediately removes the *hero-to-delete* from that list, anticipating that the `HeroService` will succeed on the server.
 
-`src/app/heroes/heroes.component.ts (cleaned up)`
-``` typescript
-export class HeroesComponent implements OnInit {
-  heroes: Hero[] = [];
+There's really nothing for the component to do with the `Observable` returned by `heroService.delete()` **but it must subscribe anyway**.
 
-  constructor(private heroService: HeroService) { }
+>If you neglect to subscribe(), the service will not send the delete request to the server. As a rule, an Observable does nothing until something subscribes.
+<br>
+Confirm this for yourself by temporarily removing the subscribe(), clicking "Dashboard", then clicking "Heroes". You'll see the full list of heroes again.
+
+Next, add a `deleteHero()` method to `HeroService` like this
+
+`src/app/hero.service.ts (delete)`
+
+``` ts 
+/** DELETE: delete the hero from the server */
+deleteHero(id: number): Observable<Hero> {
+  const url = `${this.heroesUrl}/${id}`;
+
+  return this.http.delete<Hero>(url, this.httpOptions).pipe(
+    tap(_ => this.log(`deleted hero id=${id}`)),
+    catchError(this.handleError<Hero>('deleteHero'))
+  );
+}
+```
+Note the following key points:
+
+* `deleteHero()` calls `HttpClient.delete()`.
+* The URL is the heroes resource URL plus the `id` of the hero to delete.
+* You don't send data as you did with `put()` and `post()`.
+* You still send the `httpOptions`.
+
+Refresh the browser and try the new delete functionality.
+
+## Search by name
+
+In this last exercise, you learn to chain `Observable` operators together so you can minimize the number of similar HTTP requests and consume network bandwidth economically.
+
+You will add a heroes search feature to the Dashboard. As the user types a name into a search box, you'll make repeated HTTP requests for heroes filtered by that name. Your goal is to issue only as many requests as necessary.
+
+HeroService.`searchHeroes()`
+Start by adding a `searchHeroes()` method to the HeroService.
+
+`src/app/hero.service.ts`
+``` ts 
+/* GET heroes whose name contains search term */
+searchHeroes(term: string): Observable<Hero[]> {
+  if (!term.trim()) {
+    // if not search term, return empty hero array.
+    return of([]);
+  }
+  return this.http.get<Hero[]>(`${this.heroesUrl}/?name=${term}`).pipe(
+    tap(x => x.length ?
+       this.log(`found heroes matching "${term}"`) :
+       this.log(`no heroes matching "${term}"`)),
+    catchError(this.handleError<Hero[]>('searchHeroes', []))
+  );
+}
+```
+
+The method returns immediately with an empty array if there is no search term. The rest of it closely resembles `getHeroes()`, the only significant difference being the URL, which includes a query string with the search term.
+
+### Add search to the Dashboard
+
+Open the `DashboardComponent` template and add the hero search element, `<app-hero-search>`, to the bottom of the markup.
+
+`src/app/dashboard/dashboard.component.html`
+
+``` html 
+<h2>Top Heroes</h2>
+<div class="heroes-menu">
+  <a *ngFor="let hero of heroes"
+      routerLink="/detail/{{hero.id}}">
+      {{hero.name}}
+  </a>
+</div>
+
+<app-hero-search></app-hero-search>
+```
+
+This template looks a lot like the `*ngFor` repeater in the `HeroesComponent` template.
+
+For this to work, the next step is to add a component with a selector that matches `<app-hero-search>`.
+
+### Create HeroSearchComponent
+
+Create a HeroSearchComponent with the CLI.
+
+```
+ng generate component hero-search
+```
+
+The CLI generates the three `HeroSearchComponent` files and adds the component to the `AppModule` declarations.
+
+Replace the generated `HeroSearchComponent` template with an `<input>` and a list of matching search results, as follows.
+
+`src/app/hero-search/hero-search.component.html`
+
+``` html
+<div id="search-component">
+  <label for="search-box">Hero Search</label>
+  <input #searchBox id="search-box" (input)="search(searchBox.value)" />
+
+  <ul class="search-result">
+    <li *ngFor="let hero of heroes$ | async" >
+      <a routerLink="/detail/{{hero.id}}">
+        {{hero.name}}
+      </a>
+    </li>
+  </ul>
+</div>
+```
+Add private CSS styles to `hero-search.component.css` .
+
+As the user types in the search box, an input event binding calls the component's `search()` method with the new search box value.
+
+### AsyncPipe
+
+The `*ngFor` repeats hero objects. Notice that the` *ngFor` iterates over a list called `heroes$`, not heroes. The `$` is a convention that indicates `heroes$` is an `Observable`, not an array.
+
+`src/app/hero-search/hero-search.component.html`
+
+```` html 
+<li *ngFor="let hero of heroes$ | async" >
+  ````
+Since `*ngFor` can't do anything with an `Observable`, use the pipe character `(|)` followed by `async`. This identifies Angular's `AsyncPipe` and subscribes to an `Observable` automatically so you won't have to do so in the component class.
+
+### Edit the HeroSearchComponent class
+
+Replace the generated HeroSearchComponent class and metadata as follows.
+
+`src/app/hero-search/hero-search.component.ts`
+``` ts 
+import { Component, OnInit } from '@angular/core';
+
+import { Observable, Subject } from 'rxjs';
+
+import {
+   debounceTime, distinctUntilChanged, switchMap
+ } from 'rxjs/operators';
+
+import { Hero } from '../hero';
+import { HeroService } from '../hero.service';
+
+@Component({
+  selector: 'app-hero-search',
+  templateUrl: './hero-search.component.html',
+  styleUrls: [ './hero-search.component.css' ]
+})
+export class HeroSearchComponent implements OnInit {
+  heroes$!: Observable<Hero[]>;
+  private searchTerms = new Subject<string>();
+
+  constructor(private heroService: HeroService) {}
+
+  // Push a search term into the observable stream.
+  search(term: string): void {
+    this.searchTerms.next(term);
+  }
 
   ngOnInit(): void {
-    this.getHeroes();
+    this.heroes$ = this.searchTerms.pipe(
+      // wait 300ms after each keystroke before considering the term
+      debounceTime(300),
+
+      // ignore new term if same as previous term
+      distinctUntilChanged(),
+
+      // switch to new search observable each time the term changes
+      switchMap((term: string) => this.heroService.searchHeroes(term)),
+    );
   }
+}
+```
+Notice the declaration of `heroes$` as an `Observable`:
 
-  getHeroes(): void {
-    this.heroService.getHeroes()
-    .subscribe(heroes => this.heroes = heroes);
-  }
+`src/app/hero-search/hero-search.component.ts`
+
+``` ts 
+heroes$!: Observable<Hero[]>;
+```
+
+You'll set it in `ngOnInit()`. Before you do, focus on the definition of `searchTerms`.
+
+### The searchTerms RxJS subject
+
+The `searchTerms` property is an RxJS `Subject`.
+
+`src/app/hero-search/hero-search.component.ts`
+``` ts private searchTerms = new Subject<string>();
+
+// Push a search term into the observable stream.
+search(term: string): void {
+  this.searchTerms.next(term);
 }
 ```
 
-## Routable HeroDetailComponent
-Previously, the parent `HeroesComponent` set the `HeroDetailComponent.hero` property and the `HeroDetailComponent` displayed the hero.
+A `Subject` is both a source of observable values and an `Observable` itself. You can subscribe to a `Subject` as you would any `Observable`.
 
-`HeroesComponent` doesn't do that anymore. Now the router creates the `HeroDetailComponent` in response to a URL such as `~/detail/11`.
+You can also push values into that `Observable` by calling its `next(value)` method as the `search()` method does.
 
-The `HeroDetailComponent` needs a new way to obtain the hero-to-display. This section explains the following:
+The event binding to the textbox's `input` event calls the `search()` method.
 
-* Get the route that created it
-* Extract the `id` from the route
-* Acquire the hero with that `id` from the server using the `HeroService`
+`src/app/hero-search/hero-search.component.html`
+```html 
 
-Add the following imports:
-
-`src/app/hero-detail/hero-detail.component.ts`
-```typescript
-import { ActivatedRoute } from '@angular/router';
-import { Location } from '@angular/common';
-
-import { HeroService } from '../hero.service';
-```
-Inject the `ActivatedRoute`, `HeroService`, and `Location` services into the constructor, saving their values in private fields:
-`src/app/hero-detail/hero-detail.component.ts`
-```typescript
-constructor(
-  private route: ActivatedRoute,
-  private heroService: HeroService,
-  private location: Location
-) {}
+<input #searchBox id="search-box" (input)="search(searchBox.value)" />
 ```
 
-The `ActivatedRoute` holds information about the route to this instance of the `HeroDetailComponent`. This component is interested in the route's parameters extracted from the URL. The "id" parameter is the `id` of the hero to display.
+Every time the user types in the textbox, the binding calls `search()` with the textbox value, a "search term". The `searchTerms` becomes an `Observable` emitting a steady stream of search terms
 
-The `HeroService` gets hero data from the remote server and this component will use it to get the hero-to-display.
+### Chaining RxJS operators
 
-The `location` is an Angular service for interacting with the browser. You'll use it later to navigate back to the view that navigated here.
+Passing a new search term directly to the `searchHeroes()` after every user keystroke would create an excessive amount of HTTP requests, taxing server resources and burning through data plans.
 
-## Extract the id route parameter
-In the `ngOnInit()` lifecycle hook call `getHero()` and define it as follows.
+Instead, the `ngOnInit()` method pipes the `searchTerms` observable through a sequence of RxJS operators that reduce the number of calls to the `searchHeroes()`, ultimately returning an observable of timely hero search results (each a `Hero[]`).
 
-`src/app/hero-detail/hero-detail.component.ts`
+Here's a closer look at the code.
 
-```typescript
-ngOnInit(): void {
-  this.getHero();
-}
+`src/app/hero-search/hero-search.component.ts`
+``` ts 
+this.heroes$ = this.searchTerms.pipe(
+  // wait 300ms after each keystroke before considering the term
+  debounceTime(300),
 
-getHero(): void {
-  const id = Number(this.route.snapshot.paramMap.get('id'));
-  this.heroService.getHero(id)
-    .subscribe(hero => this.hero = hero);
-}
+  // ignore new term if same as previous term
+  distinctUntilChanged(),
+
+  // switch to new search observable each time the term changes
+  switchMap((term: string) => this.heroService.searchHeroes(term)),
+);
 ```
 
-The `route.snapshot` is a static image of the route information shortly after the component was created.
+Each operator works as follows:
+* `debounceTime(300)` waits until the flow of new string events pauses for 300 milliseconds before passing along the latest string. You'll never make requests more frequently than 300ms.
 
-The `paramMap` is a dictionary of route parameter values extracted from the URL. The `"id"` key returns the `id` of the hero to fetch.
+* `distinctUntilChanged()` ensures that a request is sent only if the filter text changed.
 
-Route parameters are always strings. The JavaScript `Number` function converts the string to a number, which is what a hero `id` should be.
+* `switchMap()` calls the search service for each search term that makes it through `debounce()` and `distinctUntilChanged()`. It cancels and discards previous search observables, returning only the latest search service observable.
 
-The browser refreshes and the application crashes with a compiler error. `HeroService` doesn't have a `getHero()` method. Add it now.
+>With the switchMap operator, every qualifying key event can trigger an HttpClient.get() method call. Even with a 300ms pause between requests, you could have multiple HTTP requests in flight and they may not return in the order sent.
+<br><br>
+switchMap() preserves the original request order while returning only the observable from the most recent HTTP method call. Results from prior calls are canceled and discarded.
+<br><br>
+Note that canceling a previous searchHeroes() Observable doesn't actually abort a pending HTTP request. Unwanted results are discarded before they reach your application code.
 
-## Add HeroService.getHero()
-Open `HeroService` and add the following `getHero()` method with the `id` after the `getHeroes()` method:
-
-`src/app/hero.service.ts (getHero)`
-
-```typescript
-getHero(id: number): Observable<Hero> {
-  // For now, assume that a hero with the specified `id` always exists.
-  // Error handling will be added in the next step of the tutorial.
-  const hero = HEROES.find(h => h.id === id)!;
-  this.messageService.add(`HeroService: fetched hero id=${id}`);
-  return of(hero);
-}
-```
->Note the backticks ( ` ) that define a JavaScript template literal for embedding the id.
-
-Like `getHeroes()`, `getHero()` has an asynchronous signature. It returns a _mock hero_ as an `Observable`, using the RxJS `of()` function.
-
-You'll be able to re-implement `getHero()` as a real `Http` request without having to change the `HeroDetailComponent` that calls it.
+Remember that the component class does not subscribe to the `heroes$ `observable. That's the job of the `AsyncPipe` in the template.
 
 ## Try it
 
-The browser refreshes and the application is working again. You can click a hero in the dashboard or in the heroes list and navigate to that hero's detail view.
+Run the application again. In the Dashboard, enter some text in the search box. If you enter characters that match any existing hero names, you'll see something like this.
+![Demo app](./img/toh-hero-search.gif)
 
-If you paste `localhost:4200/detail/11` in the browser address bar, the router navigates to the detail view for the hero with `id: 11`, "Dr Nice".
+# Summary
+You're at the end of your journey, and you've accomplished a lot.
 
-## Find the way back
-By clicking the browser's back button, you can go back to the hero list or dashboard view, depending upon which sent you to the detail view.
-
-It would be nice to have a button on the `HeroDetail` view that can do that.
-
-Add a go _back_ button to the bottom of the component template and bind it to the component's `goBack()` method.
-
-`src/app/hero-detail/hero-detail.component.html (back button)`
-```html
-<button (click)="goBack()">go back</button>
-```
-
-Add a `goBack()` _method_ to the component class that navigates backward one step in the browser's history stack using the `Location` service that you `injected previously`.
-
-`src/app/hero-detail/hero-detail.component.ts (goBack)`
-```typescript
-goBack(): void {
-  this.location.back();
-}
-```
-Refresh the browser and start clicking. Users can navigate around the app, from the dashboard to hero details and back, from heroes list to the mini detail to the hero details and back to the heroes again.
-
-## Summary
-
-* You added the Angular router to navigate among different components.
-* You turned the `AppComponent` into a navigation shell with `<a>` links and a `<router-outlet>`.
-* You configured the router in an `AppRoutingModule`
-* You defined routes, a redirect route, and a parameterized route.
-* You used the `routerLink` directive in anchor elements.
-* You refactored a tightly-coupled master/detail view into a routed detail view.
-* You used router link parameters to navigate to the detail view of a user-selected hero.
-* You shared the `HeroService` among multiple components.
+* You added the necessary dependencies to use HTTP in the app.
+*  You refactored HeroService to load heroes from a web API.
+* You extended HeroService to support post(), put(), and delete() methods.
+* You updated the components to allow adding, editing, and deleting of heroes.
+*  You configured an in-memory web API.
+* You learned how to use observables.
 
 
 ### *End of session 15*

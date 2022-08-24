@@ -145,6 +145,12 @@ In this section, you'll use the Angular Router to combine the `products` data an
 
     <br>
 
+## ✅ Tasks
+
+✅ Create anew component called `laptop-details.component` in `computer-store` project.
+
+✅ Add the navigation system to the `computer-store` project with the steps followed in the current session.
+
 ### *End of session 5*
 
-### [NEXT: Managing data](session6.md)
+### [NEXT: Session6](session6.md)

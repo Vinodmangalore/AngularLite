@@ -140,4 +140,10 @@ This section walks you through using the `CartService` to add a product to the c
 
 <br>
 
+## ✅ Tasks
+
+✅ Create the shopping cart service implementation in the `computer-store` project as well.
+
 ### *End of session 6*
+
+### [NEXT: Session7](session7.md)

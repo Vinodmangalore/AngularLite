@@ -302,3 +302,5 @@ The `[appHighlight]` attribute binding performs two tasks:
 * sets the directive's highlight color with a property binding
 
 ### *End of session 10*
+
+### [NEXT: Session11](session11.md)

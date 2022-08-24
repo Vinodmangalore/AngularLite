@@ -193,6 +193,12 @@ In `product-list.component.html`, bind `<app-product-alerts>` to the `onNotify()
 
 <br>
 
+## ✅ Tasks
+
+✅ Perform all the steps followed in the current session in the project `computer-store`.
+
+✅ Create necessary component to implement passing data from parent to child and vice versa, like `laptop-alerts.component`
+
 ### *End of session 4*
 
-### [NEXT: Adding navigation](session5.md)
+### [NEXT: Session5](session5.md)

@@ -1,388 +1,553 @@
 ### *Session 14*
 
-# Add services
-The Tour of Heroes `HeroesComponent` is currently getting and displaying fake data.
+# Add navigation with routing
+There are new requirements for the Tour of Heroes app:
 
-After the refactoring in this tutorial, `HeroesComponent` will be lean and focused on supporting the view. It will also be easier to unit-test with a mock service.
+* Add a _Dashboard_ view.
+* Add the ability to navigate between the _Heroes_ and _Dashboard_ views.
+* When users click a hero name in either view, navigate to a detail view of the selected hero.
+* When users click a _deep link_ in an email, open the detail view for a particular hero.
 
-## Why services
-Components shouldn't fetch or save data directly and they certainly shouldn't knowingly present fake data. They should focus on presenting data and delegate data access to a service.
+When you’re done, users will be able to navigate the application like this:
 
-In this tutorial, you'll create a `HeroService` that all application classes can use to get heroes. Instead of creating that service with the 
-`new
-keyword`, you'll rely on Angular `dependency injection` to inject it into the HeroesComponent constructor.
+![Demo app](./img/nav-diagram.png)
 
-Services are a great way to share information among classes that don't know each other. You'll create a `MessageService` and inject it in two places.
+## Add the AppRoutingModule
+In Angular, the best practice is to load and configure the router in a separate, top-level module that is dedicated to routing and imported by the root `AppModule`.
 
-1. Inject in HeroService, which uses the service to send a message.
-2. Inject in MessagesComponent, which displays that message, and also displays the ID when the user clicks a hero.
+By convention, the module class name is `AppRoutingModule` and it belongs in the `app-routing.module.ts` in the `src/app` folder.
 
-## Create the HeroService
+Use the CLI to generate it.
+`ng generate module app-routing --flat --module=app`
 
-Using the Angular CLI, create a service called hero.
+>--flat puts the file in src/app instead of its own folder.<br>
+>--module=app tells the CLI to register it in the imports array of the AppModule.
 
-```
-ng generate service hero
-```
+The generated file looks like this:
+`src/app/app-routing.module.ts (generated)`
+```typescript
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
 
-The command generates a skeleton HeroService class in src/app/hero.service.ts as follows:
-
-`src/app/hero.service.ts (new service)`
-
-```ts 
-import { Injectable } from '@angular/core';
-
-@Injectable({
-  providedIn: 'root',
+@NgModule({
+  imports: [
+    CommonModule
+  ],
+  declarations: []
 })
-export class HeroService {
-
-  constructor() { }
-
-} 
+export class AppRoutingModule { }
 ```
-## @Injectable() services
-Notice that the new service imports the Angular `Injectable` symbol and annotates the class with the `@Injectable()` decorator. This marks the class as one that participates in the dependency injection system. The `HeroService` class is going to provide an injectable service, and it can also have its own injected dependencies. It doesn't have any dependencies yet, but `it will soon`.
+Replace it with the following:
+`src/app/app-routing.module.ts (updated)`
+```typescript
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { HeroesComponent } from './heroes/heroes.component';
 
-The `@Injectable()` decorator accepts a metadata object for the service, the same way the `@Component()` decorator did for your component classes.
+const routes: Routes = [
+  { path: 'heroes', component: HeroesComponent }
+];
 
-### Get hero data
-The `HeroService` could get hero data from anywhere—a web service, local storage, or a mock data source.
-
-Removing data access from components means you can change your mind about the implementation anytime, without touching any components. They don't know how the service works.
-
-The implementation in this tutorial will continue to deliver mock heroes.
-
-Import the `Hero` and `HEROES`.
-
-`src/app/hero.service.ts`
-
-```ts 
-import { Hero } from './hero';
-import { HEROES } from './mock-heroes'
-```
-Add a `getHeroes` method to return the mock heroes.
-
-`src/app/hero.service.ts`
-```ts 
-getHeroes(): Hero[] {
-  return HEROES;
-}
-```
-
-## Provide the HeroService
-
-You must make the `HeroService` available to the dependency injection system before Angular can inject it into the `HeroesComponent` by registering a provider. A provider is something that can create or deliver a service; in this case, it instantiates the `HeroService` class to provide the service.
-
-To make sure that the `HeroService` can provide this service, register it with the injector, which is the object that is responsible for choosing and injecting the provider where the application requires it.
-
-By default, the Angular CLI command `ng generate service` registers a provider with the root injector for your service by including provider metadata, that is `providedIn: 'root'` in the ` @Injectable() `decorator.
-
-```ts 
-@Injectable({
-  providedIn: 'root',
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
 })
+export class AppRoutingModule { }
 ```
-When you provide the service at the root level, Angular creates a single, shared instance of `HeroService` and injects into any class that asks for it. Registering the provider in the `@Injectable` metadata also allows Angular to optimize an application by removing the service if it turns out not to be used after all.
+First, the `app-routing.module.ts` file imports `RouterModule` and `Routes` so the application can have routing functionality. The next import, `HeroesComponent`, will give the Router somewhere to go once you configure the routes.
 
-The HeroService is now ready to plug into the HeroesComponent.
+Notice that the `CommonModule` references and `declarations` array are unnecessary, so are no longer part of `AppRoutingModule`. The following sections explain the rest of the `AppRoutingModule` in more detail.
 
-## Update HeroesComponent
-Open the `HeroesComponent` class file.
+## Routes
+The next part of the file is where you configure your routes. _Routes_ tell the Router which view to display when a user clicks a link or pastes a URL into the browser address bar.
 
-Delete the `HEROES` import, because you won't need that anymore. Import the `HeroService` instead.
+Since `app-routing.module.ts` already imports `HeroesComponent`, you can use it in the `routes` array:
 
-`src/app/heroes/heroes.component.ts (import HeroService)`
-```ts 
-import { HeroService } from '../hero.service';
+`src/app/app-routing.module.ts`
+```typescript
+const routes: Routes = [
+  { path: 'heroes', component: HeroesComponent }
+];
 ```
-Replace the definition of the heroes property with a declaration.
+A typical Angular `Route` has two properties:
 
-`src/app/heroes/heroes.component.ts`
-```ts 
-heroes: Hero[] = [];
+`path`: a string that matches the URL in the browser address bar.
+`component`: the component that the router should create when navigating to this route.
+
+This tells the router to match that URL to `path: 'heroes'` and display the `HeroesComponent` when the URL is something like `localhost:4200/heroes`.
+
+## `RouterModule.forRoot()`
+The `@NgModule` metadata initializes the router and starts it listening for browser location changes.
+
+The following line adds the `RouterModule` to the `AppRoutingModule imports` array and configures it with the `routes` in one step by calling `RouterModule.forRoot()`:
+`src/app/app-routing.module.ts`
+```typescript
+imports: [ RouterModule.forRoot(routes) ],
 ```
-### Inject the HeroService
-Add a private `heroService` parameter of type `HeroService` to the constructor.
+>The method is called `forRoot()` because you configure the router at the application's root level. The `forRoot()` method supplies the service providers and directives needed for routing, and performs the initial navigation based on the current browser URL.
 
-`src/app/heroes/heroes.component.ts`
+Next, `AppRoutingModule` exports `RouterModule` so it will be available throughout the application.
 
-```ts 
-constructor(private heroService: HeroService) {}
-```
-
-The parameter simultaneously defines a private `heroService` property and identifies it as a `HeroService` injection site.
-
-When Angular creates a `HeroesComponent`, the `Dependency Injection` system sets the `heroService` parameter to the singleton instance of `HeroService` .
-
-## Add getHeroes()
-Create a method to retrieve the heroes from the service.
-`src/app/heroes/heroes.component.ts`
-```ts 
-getHeroes(): void {
-  this.heroes = this.heroService.getHeroes();
-}
+`src/app/app-routing.module.ts (exports array)`
+```typescript
+exports: [ RouterModule ]
 ```
 
-### Call it in ngOnInit()
+## Add `RouterOutlet`
+Open the `AppComponent` template and replace the `<app-heroes>` element with a `<router-outlet>` element.
 
-While you could call `getHeroes()` in the constructor, that's not the best practice.
-
-Reserve the constructor for minimal initialization such as wiring constructor parameters to properties. The constructor shouldn't do anything. It certainly shouldn't call a function that makes HTTP requests to a remote server as a real data service would.
-
-Instead, call `getHeroes()` inside the *`ngOnInit lifecycle hook`* and let Angular call `ngOnInit()` at an appropriate time after constructing a `HeroesComponent` instance.
-
-`src/app/heroes/heroes.component.ts`
-
-```ts 
-ngOnInit(): void {
-  this.getHeroes();
-}
-```
-## See it run
-
-After the browser refreshes, the application should run as before, showing a list of heroes and a hero detail view when you click on a hero name.
-
-# Observable data
-The `HeroService.getHeroes()` method has a synchronous signature, which implies that the `HeroService` can fetch heroes synchronously. The `HeroesComponent` consumes the `getHeroes()` result as if heroes could be fetched synchronously.
-
-`src/app/heroes/heroes.component.ts`
-``` ts 
- this.heroes = this.heroService.getHeroes();
-```
-This will not work in a real application. You're getting away with it now because the service currently returns mock heroes. But soon the application will fetch heroes from a remote server, which is an inherently asynchronous operation.
-
-The `HeroService` must wait for the server to respond, `getHeroes()` cannot return immediately with hero data, and the browser will not block while the service waits.
-
-`HeroService.getHeroes()` must have an asynchronous signature of some kind.
-
-In this tutorial, `HeroService.getHeroes()` will return an `Observable` because it will eventually use the Angular `HttpClient.get` method to fetch the heroes and `HttpClient.get()` `returns an Observable`.
-
-## Observable HeroService
-`Observable` is one of the key classes in the `RxJS library`.
-
-In a `later tutorial on HTTP`, you'll learn that Angular's HttpClient methods return RxJS `Observables`. In this tutorial, you'll simulate getting data from the server with the RxJS `of()` function.
-
-Open the `HeroService` file and import the `Observable` and of symbols from RxJS.
-
-`src/app/hero.service.ts (Observable imports)`
-``` ts
-import { Observable, of } from 'rxjs';
-```
-Replace the `getHeroes()` method with the following:
-
-`src/app/hero.service.ts`
-
-```ts 
-getHeroes(): Observable<Hero[]> {
-  const heroes = of(HEROES);
-  return heroes;
-}
-```
-`of(HEROES)` returns an `Observable<Hero[]>` that emits a single value, the array of mock heroes.
-
->In the HTTP tutorial, you'll call `HttpClient.get<Hero[]>() `which also returns an `Observable<Hero[]>` that emits a single value, an array of heroes from the body of the HTTP response.
-
-## Subscribe in HeroesComponent
-
-The `HeroService.getHeroes` method used to return a `Hero[]`. Now it returns an `Observable<Hero[]>`.
-
-You'll have to adjust to that difference in `HeroesComponent`.
-
-Find the `getHeroes` method and replace it with the following code (shown side-by-side with the previous version for comparison)
-
-`heroes.component.ts (Observable)`
-``` ts 
-getHeroes(): void {
-  this.heroService.getHeroes()
-      .subscribe(heroes => this.heroes = heroes);
-}
-```
-`heroes.component.ts (Original)`
-
-```ts 
-getHeroes(): void {
-  this.heroes = this.heroService.getHeroes();
-}
-```
-`Observable.subscribe()` is the critical difference.
-
-The previous version assigns an array of heroes to the component's `heroes` property. The assignment occurs synchronously, as if the server could return heroes instantly or the browser could freeze the UI while it waited for the server's response.
-
-That *won't work* when the `HeroService` is actually making requests of a remote server.
-
-The new version waits for the `Observable` to emit the array of heroes—which could happen now or several minutes from now. The `subscribe()` method passes the emitted array to the callback, which sets the component's `heroes` property.
-
-This asynchronous approach will work when the `HeroService` requests heroes from the server.
-
-## Show messages
-This section guides you through the following:
-* adding a MessagesComponent that displays application messages at the bottom of the screen
-* creating an injectable, app-wide MessageService for sending messages to be displayed
-* injecting MessageService into the HeroService
-* displaying a message when HeroService fetches heroes successfully
-
-##  Create MessagesComponent
-Use the CLI to create the `MessagesComponent`.
-
-```
-ng generate component messages
-```
-The CLI creates the component files in the `src/app/messages` folder and declares the `MessagesComponent` in `AppModule`.
-
-Modify the `AppComponent` template to display the generated `MessagesComponent`.
-
-`src/app/app.component.html`
-``` html
+`src/app/app.component.html (router-outlet)`
+```html
 <h1>{{title}}</h1>
-<app-heroes></app-heroes>
+<router-outlet></router-outlet>
 <app-messages></app-messages>
 ```
-You should see the default paragraph from `MessagesComponent` at the bottom of the page.
 
+The `AppComponent` template no longer needs `<app-heroes>` because the application will only display the `HeroesComponent` when the user navigates to it.
 
-## Create the MessageService
-Use the CLI to create the `MessageService` in `src/app`
+The `<router-outlet>` tells the router where to display routed views.
+
+>The `RouterOutlet` is one of the router directives that became available to the `AppComponent` because `AppModule` imports `AppRoutingModule` which exported `RouterModule`. The `ng generate` command you ran at the start of this tutorial added this import because of the `--module=app` flag. If you manually created `app-routing.module.ts` or used a tool other than the CLI to do so, you'll need to import `AppRoutingModule` into `app.module.ts` and add it to the `imports` array of the `NgModule`.
+
+## Try it
+
+You should still be running with this CLI command.
+
 ```
-ng generate service message
-```
-Open MessageService and replace its contents with the following.
-
-`src/app/message.service.ts`
-
-```ts 
-import { Injectable } from '@angular/core';
-
-@Injectable({
-  providedIn: 'root',
-})
-export class MessageService {
-  messages: string[] = [];
-
-  add(message: string) {
-    this.messages.push(message);
-  }
-
-  clear() {
-    this.messages = [];
-  }
-}
-```
-The service exposes its cache of `messages` and two methods: one to `add()` a message to the cache and another to `clear()` the cache.
-
-### Inject it into the HeroService
-In `HeroService`, import the `MessageService`.
-`src/app/hero.service.ts (import MessageService)`
-``` ts 
-import { MessageService } from './message.service';
-```
-Modify the constructor with a parameter that declares a private `messageService` property. Angular will inject the singleton `MessageService` into that property when it creates the `HeroService`.
-`src/app/hero.service.ts`
-```ts 
-constructor(private messageService: MessageService) { }
-```
->This is a typical *"service-in-service"* scenario: you inject the `MessageService` into the `HeroService` which is injected into the `HeroesComponent`.
-
-### Send a message from HeroService
-Modify the `getHeroes()` method to send a message when the heroes are fetched.
-
-`src/app/hero.service.ts`
-```ts getHeroes(): Observable<Hero[]> {
-  const heroes = of(HEROES);
-  this.messageService.add('HeroService: fetched heroes');
-  return heroes;
-}
-```
-### Display the message from HeroService
-The `MessagesComponent` should display all messages, including the message sent by the `HeroService` when it fetches heroes.
-
-Open `MessagesComponent` and import the `MessageService`.
-
-`src/app/messages/messages.component.ts (import MessageService)`
-```ts 
-import { MessageService } from '../message.service';
+ng serve
 ```
 
-Modify the constructor with a parameter that declares a public `messageService` property. Angular will inject the singleton `MessageService` into that property when it creates the `MessagesComponent`.
+The browser should refresh and display the application title but not the list of heroes.
 
-`src/app/messages/messages.component.ts`
-``` ts 
-constructor(public messageService: MessageService) {}
+Look at the browser's address bar. The URL ends in `/`. The route path to `HeroesComponent` is `/heroes`.
+
+Append `/heroes` to the URL in the browser address bar. You should see the familiar heroes master/detail view.
+
+Remove `/heroes` from the URL in the browser address bar. The browser should refresh and display the application title but not the list of heroes.
+
+## Add a navigation link (`routerLink`)
+Ideally, users should be able to click a link to navigate rather than pasting a route URL into the address bar.
+
+Add a `<nav>` element and, within that, an anchor element that, when clicked, triggers navigation to the `HeroesComponent`. The revised `AppComponent` template looks like this:
+`src/app/app.component.html (heroes RouterLink)`
+```html
+<h1>{{title}}</h1>
+<nav>
+  <a routerLink="/heroes">Heroes</a>
+</nav>
+<router-outlet></router-outlet>
+<app-messages></app-messages>
 ```
-The `messageService` property **must be public** because you're going to bind to it in the template.
+A `routerLink attribute` is set to `"/heroes"`, the string that the router matches to the route to `HeroesComponent`. The `routerLink` is the selector for the `RouterLink directive` that turns user clicks into router navigations. It's another of the public directives in the `RouterModule`.
 
->Angular only binds to public component properties.
+The browser refreshes and displays the application title and heroes link, but not the heroes list.
 
-### Bind to the MessageService
- Replace the CLI-generated `MessagesComponent` template with the following.
+Click the link. The address bar updates to `/heroes` and the list of heroes appears.
 
- `src/app/messages/messages.component.html`
-```html 
-<div *ngIf="messageService.messages.length">
+## Add a dashboard view
+Routing makes more sense when there are multiple views. So far there's only the heroes view.
 
-  <h2>Messages</h2>
-  <button class="clear"
-          (click)="messageService.clear()">Clear messages</button>
-  <div *ngFor='let message of messageService.messages'> {{message}} </div>
+Add a `DashboardComponent` using the CLI:
 
+```
+ng generate component dashboard
+```
+The CLI generates the files for the `DashboardComponent` and declares it in `AppModule`.
+
+Replace the default file content in these three files as follows:
+
+`src/app/dashboard/dashboard.component.html`
+
+```html
+<h2>Top Heroes</h2>
+<div class="heroes-menu">
+  <a *ngFor="let hero of heroes">
+    {{hero.name}}
+  </a>
 </div>
 ```
-This template binds directly to the component's `messageService`.
-* The `*ngIf` only displays the messages area if there are messages to show.
-* An `*ngFor` presents the list of messages in repeated <div> elements.
-* An Angular `event binding` binds the button's click event to `MessageService.clear()`.
 
-
-## Add additional messages to hero service
-The following example shows how to send and display a message each time the user clicks on a hero, showing a history of the user's selections. This will be helpful when you get to the next section on `Routing`.
-
-`src/app/heroes/heroes.component.ts`
-``` ts 
+`src/app/dashboard/dashboard.component.ts`
+```typescript
 import { Component, OnInit } from '@angular/core';
-
 import { Hero } from '../hero';
 import { HeroService } from '../hero.service';
-import { MessageService } from '../message.service';
 
 @Component({
-  selector: 'app-heroes',
-  templateUrl: './heroes.component.html',
-  styleUrls: ['./heroes.component.css']
+  selector: 'app-dashboard',
+  templateUrl: './dashboard.component.html',
+  styleUrls: [ './dashboard.component.css' ]
 })
-export class HeroesComponent implements OnInit {
-
-  selectedHero?: Hero;
-
+export class DashboardComponent implements OnInit {
   heroes: Hero[] = [];
 
-  constructor(private heroService: HeroService, private messageService: MessageService) { }
+  constructor(private heroService: HeroService) { }
 
   ngOnInit(): void {
     this.getHeroes();
   }
 
-  onSelect(hero: Hero): void {
-    this.selectedHero = hero;
-    this.messageService.add(`HeroesComponent: Selected hero id=${hero.id}`);
+  getHeroes(): void {
+    this.heroService.getHeroes()
+      .subscribe(heroes => this.heroes = heroes.slice(1, 5));
+  }
+}
+```
+
+`src/app/dashboard/dashboard.component.css`
+```css
+/* DashboardComponent's private CSS styles */
+
+h2 {
+  text-align: center;
+}
+
+.heroes-menu {
+  padding: 0;
+  margin: auto;
+  max-width: 1000px;
+
+  /* flexbox */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-content: flex-start;
+  align-items: flex-start;
+}
+
+a {
+  background-color: #3f525c;
+  border-radius: 2px;
+  padding: 1rem;
+  font-size: 1.2rem;
+  text-decoration: none;
+  display: inline-block;
+  color: #fff;
+  text-align: center;
+  width: 100%;
+  min-width: 70px;
+  margin: .5rem auto;
+  box-sizing: border-box;
+
+  /* flexbox */
+  order: 0;
+  flex: 0 1 auto;
+  align-self: auto;
+}
+
+@media (min-width: 600px) {
+  a {
+    width: 18%;
+    box-sizing: content-box;
+  }
+}
+
+a:hover {
+  background-color: #000;
+}
+```
+
+The template presents a grid of hero name links.
+
+* The `*ngFor` repeater creates as many links as are in the component's `heroes` array.
+* The links are styled as colored blocks by the `dashboard.component.css`.
+* The links don't go anywhere yet but they will shortly.
+
+The class is similar to the `HeroesComponent` class.
+* It defines a `heroes` array property.
+* The constructor expects Angular to inject the `HeroService` into a private `heroService` property.
+* The `ngOnInit()` lifecycle hook calls `getHeroes()`.
+This `getHeroes()` returns the sliced list of heroes at positions 1 and 5, returning only four of the Top Heroes (2nd, 3rd, 4th, and 5th).
+
+`src/app/dashboard/dashboard.component.ts`
+```typescript
+getHeroes(): void {
+  this.heroService.getHeroes()
+    .subscribe(heroes => this.heroes = heroes.slice(1, 5));
+}
+```
+
+## Add the dashboard route
+
+To navigate to the dashboard, the router needs an appropriate route.
+
+Import the `DashboardComponent` in the `app-routing-module.ts` file.
+
+`src/app/app-routing.module.ts (import DashboardComponent)`
+```typescript
+import { DashboardComponent } from './dashboard/dashboard.component';
+```
+
+Add a route to the `routes` array that matches a path to the `DashboardComponent`.
+
+`src/app/app-routing.module.ts`
+
+```typescript
+{ path: 'dashboard', component: DashboardComponent },
+```
+
+## Add a default route
+When the application starts, the browser's address bar points to the web site's root. That doesn't match any existing route so the router doesn't navigate anywhere. The space below the `<router-outlet>` is blank.
+
+To make the application navigate to the dashboard automatically, add the following route to the `routes` array.
+`src/app/app-routing.module.ts`
+```typescript
+{ path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+```
+This route redirects a URL that fully matches the empty path to the route whose path is `'/dashboard'`.
+
+After the browser refreshes, the router loads the `DashboardComponent` and the browser address bar shows the `/dashboard` URL.
+
+## Add dashboard link to the shell
+The user should be able to navigate back and forth between the `DashboardComponent` and the `HeroesComponent` by clicking links in the navigation area near the top of the page.
+
+Add a dashboard navigation link to the `AppComponent` shell template, just above the _Heroes_ link.
+
+`src/app/app.component.html`
+```html
+<h1>{{title}}</h1>
+<nav>
+  <a routerLink="/dashboard">Dashboard</a>
+  <a routerLink="/heroes">Heroes</a>
+</nav>
+<router-outlet></router-outlet>
+<app-messages></app-messages>
+```
+After the browser refreshes you can navigate freely between the two views by clicking the links.
+
+## Navigating to hero details
+The `HeroDetailComponent` displays details of a selected hero. At the moment the `HeroDetailComponent` is only visible at the bottom of the `HeroesComponent`
+
+The user should be able to get to these details in three ways.
+1. By clicking a hero in the dashboard.
+2. By clicking a hero in the heroes list.
+3. By pasting a "deep link" URL into the browser address bar that identifies the hero to display.
+
+In this section, you'll enable navigation to the `HeroDetailComponent` and liberate it from the `HeroesComponent`.
+
+## Delete _hero details_ from HeroesComponent
+When the user clicks a hero item in the `HeroesComponent`, the application should navigate to the `HeroDetailComponent`, replacing the heroes list view with the hero detail view. The heroes list view should no longer show hero details as it does now.
+
+Open the `HeroesComponent` template (`heroes/heroes.component.html`) and delete the `<app-hero-detail>` element from the bottom.
+
+Clicking a hero item now does nothing. You'll fix that shortly after you enable routing to the `HeroDetailComponent`.
+
+## Add a _hero detail_ route
+A URL like `~/detail/11` would be a good URL for navigating to the Hero Detail view of the hero whose `id` is `11`.
+
+Open `app-routing.module.ts` and import `HeroDetailComponent`.
+
+`src/app/app-routing.module.ts (import HeroDetailComponent)`
+```typescript
+import { HeroDetailComponent } from './hero-detail/hero-detail.component';
+```
+Then add a _parameterized_ route to the `routes` array that matches the path pattern to the _hero detail_ view.
+
+`src/app/app-routing.module.ts`
+```typescript
+{ path: 'detail/:id', component: HeroDetailComponent },
+```
+
+The colon (:) in the `path` indicates that `:id` is a placeholder for a specific hero `id`.
+
+At this point, all application routes are in place.
+
+`src/app/app-routing.module.ts (all routes)`
+```typescript
+const routes: Routes = [
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  { path: 'dashboard', component: DashboardComponent },
+  { path: 'detail/:id', component: HeroDetailComponent },
+  { path: 'heroes', component: HeroesComponent }
+];
+```
+
+## DashboardComponent hero links
+The `DashboardComponent` hero links do nothing at the moment.
+
+Now that the router has a route to `HeroDetailComponent`, fix the dashboard hero links to navigate using the _parameterized_ dashboard route.
+
+`src/app/dashboard/dashboard.component.html (hero links)`
+```html
+<a *ngFor="let hero of heroes"
+  routerLink="/detail/{{hero.id}}">
+  {{hero.name}}
+</a>
+```
+You're using Angular `interpolation binding` within the `*ngFor` repeater to insert the current iteration's `hero.id` into each `routerLink`.
+
+## HeroesComponent hero links
+The hero items in the `HeroesComponent` are `<li>` elements whose click events are bound to the component's `onSelect()` method.
+
+`src/app/heroes/heroes.component.html (list with onSelect)`
+```html
+<ul class="heroes">
+  <li *ngFor="let hero of heroes"
+    [class.selected]="hero === selectedHero"
+    (click)="onSelect(hero)">
+    <span class="badge">{{hero.id}}</span> {{hero.name}}
+  </li>
+</ul>
+```
+Strip the `<li>` back to just its `*ngFor`, wrap the badge and name in an anchor element (`<a>`), and add a `routerLink` attribute to the anchor that is the same as in the dashboard template
+
+`src/app/heroes/heroes.component.html (list with links)`
+```html
+<ul class="heroes">
+  <li *ngFor="let hero of heroes">
+    <a routerLink="/detail/{{hero.id}}">
+      <span class="badge">{{hero.id}}</span> {{hero.name}}
+    </a>
+  </li>
+</ul>
+```
+You'll have to fix the private stylesheet (heroes.component.css) to make the list look as it did before. Revised styles are in the final code review at the bottom of this guide.
+
+## Remove dead code (optional)
+While the `HeroesComponent` class still works, the `onSelect()` method and `selectedHero` property are no longer used.
+
+It's nice to tidy up and you'll be grateful to yourself later. Here's the class after pruning away the dead code.
+
+`src/app/heroes/heroes.component.ts (cleaned up)`
+``` typescript
+export class HeroesComponent implements OnInit {
+  heroes: Hero[] = [];
+
+  constructor(private heroService: HeroService) { }
+
+  ngOnInit(): void {
+    this.getHeroes();
   }
 
   getHeroes(): void {
     this.heroService.getHeroes()
-        .subscribe(heroes => this.heroes = heroes);
+    .subscribe(heroes => this.heroes = heroes);
   }
 }
 ```
-Refresh the browser to see the list of heroes, and scroll to the bottom to see the messages from the HeroService. Each time you click a hero, a new message appears to record the selection. Use the Clear messages button to **clear the message** history.
 
-# Summary
-* You refactored data access to the `HeroService` class.
-* You registered the `HeroService` as the provider of its service at the root level so that it can be injected anywhere in the application.
-* You used `Angular Dependency Injection` to inject it into a component.
-* You gave the `HeroService` get data method an asynchronous signature.
-* You discovered `Observable` and the RxJS Observable library.
-* You used RxJS `of()` to return an observable of mock heroes `(Observable<Hero[]>)`.
-The component's `ngOnInit` lifecycle hook calls the `HeroService` method, not the constructor.
-* You created a `MessageService` for loosely-coupled communication between classes.
-* The `HeroService` injected into a component is created with another injected service, `MessageService`.
+## Routable HeroDetailComponent
+Previously, the parent `HeroesComponent` set the `HeroDetailComponent.hero` property and the `HeroDetailComponent` displayed the hero.
+
+`HeroesComponent` doesn't do that anymore. Now the router creates the `HeroDetailComponent` in response to a URL such as `~/detail/11`.
+
+The `HeroDetailComponent` needs a new way to obtain the hero-to-display. This section explains the following:
+
+* Get the route that created it
+* Extract the `id` from the route
+* Acquire the hero with that `id` from the server using the `HeroService`
+
+Add the following imports:
+
+`src/app/hero-detail/hero-detail.component.ts`
+```typescript
+import { ActivatedRoute } from '@angular/router';
+import { Location } from '@angular/common';
+
+import { HeroService } from '../hero.service';
+```
+Inject the `ActivatedRoute`, `HeroService`, and `Location` services into the constructor, saving their values in private fields:
+`src/app/hero-detail/hero-detail.component.ts`
+```typescript
+constructor(
+  private route: ActivatedRoute,
+  private heroService: HeroService,
+  private location: Location
+) {}
+```
+
+The `ActivatedRoute` holds information about the route to this instance of the `HeroDetailComponent`. This component is interested in the route's parameters extracted from the URL. The "id" parameter is the `id` of the hero to display.
+
+The `HeroService` gets hero data from the remote server and this component will use it to get the hero-to-display.
+
+The `location` is an Angular service for interacting with the browser. You'll use it later to navigate back to the view that navigated here.
+
+## Extract the id route parameter
+In the `ngOnInit()` lifecycle hook call `getHero()` and define it as follows.
+
+`src/app/hero-detail/hero-detail.component.ts`
+
+```typescript
+ngOnInit(): void {
+  this.getHero();
+}
+
+getHero(): void {
+  const id = Number(this.route.snapshot.paramMap.get('id'));
+  this.heroService.getHero(id)
+    .subscribe(hero => this.hero = hero);
+}
+```
+
+The `route.snapshot` is a static image of the route information shortly after the component was created.
+
+The `paramMap` is a dictionary of route parameter values extracted from the URL. The `"id"` key returns the `id` of the hero to fetch.
+
+Route parameters are always strings. The JavaScript `Number` function converts the string to a number, which is what a hero `id` should be.
+
+The browser refreshes and the application crashes with a compiler error. `HeroService` doesn't have a `getHero()` method. Add it now.
+
+## Add HeroService.getHero()
+Open `HeroService` and add the following `getHero()` method with the `id` after the `getHeroes()` method:
+
+`src/app/hero.service.ts (getHero)`
+
+```typescript
+getHero(id: number): Observable<Hero> {
+  // For now, assume that a hero with the specified `id` always exists.
+  // Error handling will be added in the next step of the tutorial.
+  const hero = HEROES.find(h => h.id === id)!;
+  this.messageService.add(`HeroService: fetched hero id=${id}`);
+  return of(hero);
+}
+```
+>Note the backticks ( ` ) that define a JavaScript template literal for embedding the id.
+
+Like `getHeroes()`, `getHero()` has an asynchronous signature. It returns a _mock hero_ as an `Observable`, using the RxJS `of()` function.
+
+You'll be able to re-implement `getHero()` as a real `Http` request without having to change the `HeroDetailComponent` that calls it.
+
+## Try it
+
+The browser refreshes and the application is working again. You can click a hero in the dashboard or in the heroes list and navigate to that hero's detail view.
+
+If you paste `localhost:4200/detail/11` in the browser address bar, the router navigates to the detail view for the hero with `id: 11`, "Dr Nice".
+
+## Find the way back
+By clicking the browser's back button, you can go back to the hero list or dashboard view, depending upon which sent you to the detail view.
+
+It would be nice to have a button on the `HeroDetail` view that can do that.
+
+Add a go _back_ button to the bottom of the component template and bind it to the component's `goBack()` method.
+
+`src/app/hero-detail/hero-detail.component.html (back button)`
+```html
+<button (click)="goBack()">go back</button>
+```
+
+Add a `goBack()` _method_ to the component class that navigates backward one step in the browser's history stack using the `Location` service that you `injected previously`.
+
+`src/app/hero-detail/hero-detail.component.ts (goBack)`
+```typescript
+goBack(): void {
+  this.location.back();
+}
+```
+Refresh the browser and start clicking. Users can navigate around the app, from the dashboard to hero details and back, from heroes list to the mini detail to the hero details and back to the heroes again.
+
+## Summary
+
+* You added the Angular router to navigate among different components.
+* You turned the `AppComponent` into a navigation shell with `<a>` links and a `<router-outlet>`.
+* You configured the router in an `AppRoutingModule`
+* You defined routes, a redirect route, and a parameterized route.
+* You used the `routerLink` directive in anchor elements.
+* You refactored a tightly-coupled master/detail view into a routed detail view.
+* You used router link parameters to navigate to the detail view of a user-selected hero.
+* You shared the `HeroService` among multiple components.
+
 
 ### *End of session 14*
+
+### [NEXT: Session15](session15.md)

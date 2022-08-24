@@ -246,4 +246,10 @@ To get shipping data, from `shipping.json`, You can use the `HttpClient` `get()`
 
 <br>
 
+## ✅ Tasks
+
+✅ Create the cart view and all the other steps in the `computer-store` project as well.
+
 ### *End of session 7*
+
+### [NEXT: Session8](session8.md)

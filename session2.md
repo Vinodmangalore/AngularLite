@@ -198,42 +198,6 @@ Angular's declarative templates let you cleanly separate your application's logi
 
 <br>
 
-## <u> Dependency injection: </u>
-Dependency injection lets you declare the dependencies of your TypeScript classes without taking care of their instantiation. Instead, Angular handles the instantiation for you. This design pattern lets you write more testable and flexible code. Even though understanding dependency injection is not critical to start using Angular, we strongly recommend it as a best practice and many aspects of Angular take advantage of it to some degree.
-
-To illustrate how dependency injection works, consider the following example. The first file, `logger.service.ts`, defines a Logger class. This class contains a `writeCount` function that logs a number to the console.
-
-```typescript
-import { Injectable } from '@angular/core';
-
-@Injectable({providedIn: 'root'})
-export class Logger {
-  writeCount(count: number) {
-    console.warn(count);
-  }
-}
-```
-
-Next, the `hello-world-di.component.ts` file defines an Angular component. This component contains a button that uses the `writeCount` function of the Logger class. To access that function, the `Logger` service is injected into the `HelloWorldDI` class by adding `private logger: Logger` to the constructor.
-
-```typescript
-import { Component } from '@angular/core';
-import { Logger } from '../logger.service';
-
-@Component({
-  selector: 'hello-world-di',
-  templateUrl: './hello-world-di.component.html'
-})
-export class HelloWorldDependencyInjectionComponent  {
-  count = 0;
-
-  constructor(private logger: Logger) { }
-
-  onLogMe() {
-    this.logger.writeCount(this.count);
-    this.count++;
-  }
-}
-```
-
 ### *End of session 2*
+
+### [NEXT: Session3](session3.md)

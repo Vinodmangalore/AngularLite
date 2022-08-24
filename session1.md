@@ -1,7 +1,7 @@
 # Table of contents
 
 
-   <br>
+<br>
    
 ### *Session 1*
 
@@ -73,44 +73,19 @@ Command syntax is shown as follows:
 
 * Argument and option names can be given in either camelCase or dash-case. `--myOptionName` is equivalent to `--my-option-name`.`
 
-## ng-add
-Adds support for an external library to your project.
-
-```
-ng add <collection> [options]
-```
-
-Adds the npm package for a published library to your workspace, and configures the project in the current working directory to use that library, as specified by the library's schematic. For example, adding `@angular/pwa` configures your project for PWA support:
-
-```
-ng add @angular/pwa
-```
-
-## ng-config
-Retrieves or sets Angular configuration values in the angular.json file for the workspace.
-
-```
-ng config <json-path> <value> [options]
-```
-
 ## ng-generate
 Generates and/or modifies files based on a schematic.
 
 ```
 ng generate <schematic> [options]
 ```
-
-* class
+* component
     ```
-    ng generate class <name> [options]
+    ng generate component <name> [options]
     ```
 * module
     ```
     ng generate module <name> [options]
-    ```
-* component
-    ```
-    ng generate component <name> [options]
     ```
 * directive
     ```
@@ -119,14 +94,6 @@ ng generate <schematic> [options]
 * service
     ```
     ng generate service <name> [options]
-    ```
-* guard
-    ```
-    ng generate guard <name> [options]
-    ```
-* interceptor
-    ```
-    ng generate interceptor <name> [options]
     ```
 
 # Development commands
@@ -140,17 +107,6 @@ ng build <project> [options]
 
 The application builder uses the webpack build tool, with default configuration options specified in the workspace configuration file (angular.json) or with a named alternative configuration. A "development" configuration is created by default when you use the CLI to create the project, and you can use that configuration by specifying the --configuration development.
 
-## ng run
-Runs an Architect target with an optional custom builder configuration defined in your project.
-
-```
-ng run <target> [options]
-```
-
-Architect is the tool that the CLI uses to perform complex tasks such as compilation, according to provided configurations. The CLI commands run Architect targets such as `build`, `serve`, `test`, and `lint`. 
-
-Each named target has a default configuration, specified by an "options" object, and an optional set of named alternate configurations in the "configurations" object.
-
 ## ng serve
 
 Builds and serves your app, rebuilding on file changes.
@@ -158,11 +114,6 @@ Builds and serves your app, rebuilding on file changes.
 ng serve <project> [options]
 ```
 
-## ng test
-Runs unit tests in a project.
-
-```
-ng test <project> [options]
-```
-
 ### *End of session 1*
+
+### [NEXT: Session2](session2.md)

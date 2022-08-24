@@ -183,13 +183,6 @@ Angular executes hook methods in the following sequence. Use them to perform the
 
     Called once, after the first ngOnChanges(). ngOnInit() is still called even when ngOnChanges() is not (which is the case when there are no template-bound inputs).
 
-* `ngAfterContentInit()`
-    Respond after Angular projects external content into the component's view, or into the view that a directive is in.
-
-
-* `ngAfterViewInit()`
-    Respond after Angular initializes the component's views and child views, or the view that contains the directive.
-
 
 * `ngOnDestroy()`
     Cleanup just before Angular destroys the directive or component. Unsubscribe Observables and detach event handlers to avoid memory leaks.
@@ -226,3 +219,6 @@ export class HomeComponent implements OnInit, OnDestroy {
 ```
 
 ### *End of session 9*
+
+
+### [NEXT: Session10](session10.md)
