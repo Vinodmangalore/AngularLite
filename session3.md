@@ -27,6 +27,10 @@ cd product-app
 
 Open the folder in Visual Studio Code and start building the application.
 
+Use command `npm run start` to start the application and navigate to `http://localhost:4200` in your browser to view the application.
+
+Let's start modifying the content to implement the My Store application.
+
 ### Add necessary styles first:
 
 Make sure the `style.css` has the below content:
@@ -183,13 +187,67 @@ Also ensure the `index.html` has the material icons styles referred in the `<hea
 </head>
 ```
 
+### Clear the content
+
+Goto `app.component.html` and clear all auto generated content and add the element `<router-outlet></router-outlet>`
+
+# Create application Top bar.
+
+Use the below command to create new component:
+
+```
+ng generate component top-bar
+```
+
+Edit the `top-bar.component.html` with below content
+
+```html
+<a [routerLink]="['/']">
+  <h1>My Store</h1>
+</a>
+
+<a class="button fancy-button"><i class="material-icons">shopping_cart</i>Checkout</a>
+```
+
+Now we need to render the `top-bar` component, to do so, open `app.component.html` and add the below content:
+
+```
+<app-top-bar></app-top-bar>
+<router-outlet></router-outlet>
+```
+
+Now if you view the application in browser, you will see the top bar with My Store as title and also a checkout button on the right corner.
+
 # Create the product list
 
-Use the below command to create a new component:
+Use the below command to create the next component:
 
 ```
 ng generate component product-list
 ```
+
+The `product-list` will not be visible by default in the browser, we need to update the routing configuration to achieve this, later in the course routing will be explained in detail. For now follow the below steps:
+
+Goto `app-routing.module.ts` and import the `product-list.component` and add a configuration in the `routes` array, like below:
+
+```ts
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { ProductListComponent } from './product-list/product-list.component'; // import like this
+
+const routes: Routes = [
+  { path: '', component: ProductListComponent } // add a new entry
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { }
+
+```
+
+This will let angular understand that, when the URL path is empty like `''` render the `ProductListComponent` component. Now when you save this  file and goto browser you should start seeing the content of the product list component by default.
 
 Edit the `product-list.component.ts` file with the below code:
 
@@ -357,9 +415,14 @@ Clicking the Share button triggers an alert that states, "The product has been s
 
 ## ✅ Tasks
 
-✅ Create a new project called `computer-store`
-✅ Create new component called `laptops` just like `product-list` and list some laptops
+✅ Create a new project called `computer-store`.
+
+✅ Add top bar, and all styles like above.
+
+✅ Create new component called `laptops` just like `product-list` and list some laptops.
+
 ✅ Perform all the other steps followed in the session in the new project for laptops.
+
 
 ### *End of session 3*
 

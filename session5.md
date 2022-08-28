@@ -20,30 +20,19 @@ The application already uses the Angular `Router` to navigate to the `ProductLis
     ng generate component product-details
     ```
 
-2. In `app.module.ts`, add a route for product details, with a path of `products/:productId` and `ProductDetailsComponent` for the `component`.
+2. In `app-routing.module.ts`, add a route for product details, with a path of `products/:productId` and `ProductDetailsComponent` for the `component`.
 
-    `src/app/app.module.ts`
+    `src/app/app-routing.module.ts`
 
     ```typescript
-    @NgModule({
-    imports: [
-        BrowserModule,
-        ReactiveFormsModule,
-        RouterModule.forRoot([
+    const routes: Routes = [
         { path: '', component: ProductListComponent },
-        { path: 'products/:productId', component: ProductDetailsComponent },
-        ])
-    ],
-    declarations: [
-        AppComponent,
-        TopBarComponent,
-        ProductListComponent,
-        ProductAlertsComponent,
-        ProductDetailsComponent,
-    ],
+        { path: 'products/:productId', component: ProductDetailsComponent } // add this line
+    ];
     ```
 
 3. Open `product-list.component.html`.
+
 4. Modify the product name anchor to include a `routerLink` with the `product.id` as a parameter.
 
     `src/app/product-list/product-list.component.html`
@@ -66,7 +55,7 @@ The application already uses the Angular `Router` to navigate to the `ProductLis
 
 5. Verify that the router works as intended by clicking the product name. The application should display the `ProductDetailsComponent`, which currently says "product-details works!"
 
-    Notice that the URL in the preview window changes. The final segment is `products/#` where `#` is the number of the route you clicked.
+Notice that the URL in the preview window changes. The final segment is `products/#` where `#` is the number of the route you clicked.
 
 <br>
 
@@ -150,6 +139,8 @@ In this section, you'll use the Angular Router to combine the `products` data an
 ✅ Create anew component called `laptop-details.component` in `computer-store` project.
 
 ✅ Add the navigation system to the `computer-store` project with the steps followed in the current session.
+
+✅ Perform all the steps followed in the current session in the `computer-store` project as well.
 
 ### *End of session 5*
 

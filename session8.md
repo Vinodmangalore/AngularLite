@@ -29,7 +29,7 @@ Now that you've configured your application to retrieve shipping data, you can c
     }
     ```
 
-2. In `app.module.ts`, add a route for shipping. Specify a path of shipping and a component of `ShippingComponent`.
+2. In `app-routing.module.ts`, add a route for shipping. Specify a path of shipping and a component of `ShippingComponent`.
 
     `src/app/app.module.ts`
     ```typescript
@@ -286,9 +286,11 @@ After putting a few items in the cart, users can review their items, enter their
 
 To confirm submission, open the console to see an object containing the name and address you submitted.
 
-## ✅ Tasks
+## ✅ Tasks to perform on `computer-store` project.
 
-✅ Create the shipping implementation in the `computer-store` project with all the above steps.
+✅ Create the shipping component in the `computer-store` and other related steps.
+
+✅ Create check out form with all fields and its actions like above.
 
 ### *End of session 8*
 

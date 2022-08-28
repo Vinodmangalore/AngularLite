@@ -33,36 +33,21 @@ To create the cart view, follow the same steps you did to create the `ProductDet
     ```
     StackBlitz also generates an `ngOnInit()` by default in components. You can ignore the `CartComponent` `ngOnInit()` for this tutorial.
 
-2. Note that the newly created `CartComponent` is added to the module's `declarations` in `app.module.ts`.
+2. Note that the newly created `CartComponent` is added to the module's `declarations` in `app-routing.module.ts`.
 
-    `src/app/app.module.ts`
+    `src/app/app-routing.module.ts`
     ```typescript
     import { CartComponent } from './cart/cart.component';
-
-    @NgModule({
-    declarations: [
-        AppComponent,
-        TopBarComponent,
-        ProductListComponent,
-        ProductAlertsComponent,
-        ProductDetailsComponent,
-        CartComponent,
-    ],
     ```
-3. Still in `app.module.ts`, add a route for the component `CartComponent`, with a path of cart.
+3. Still in `app-routing.module.ts`, add a route for the component `CartComponent`, with a path of cart.
 
-    `src/app/app.module.ts`
+    `src/app/app-routing.module.ts`
     ```typescript
-    @NgModule({
-    imports: [
-        BrowserModule,
-        ReactiveFormsModule,
-        RouterModule.forRoot([
-            { path: '', component: ProductListComponent },
-            { path: 'products/:productId', component: ProductDetailsComponent },
-            { path: 'cart', component: CartComponent },
-        ])
-    ],
+    const routes: Routes = [
+        { path: '', component: ProductListComponent },
+        { path: 'products/:productId', component: ProductDetailsComponent },
+        { path: 'cart', component: CartComponent } // add this line
+    ];
     ```
 4. Update the Checkout button so that it routes to the `/cart` URL. In `top-bar.component.html`, add a `routerLink` directive pointing to `/cart`.
 
@@ -180,12 +165,7 @@ Angular's `HttpClientModule` registers the providers your application needs to u
     imports: [
         BrowserModule,
         HttpClientModule,
-        ReactiveFormsModule,
-        RouterModule.forRoot([
-        { path: '', component: ProductListComponent },
-        { path: 'products/:productId', component: ProductDetailsComponent },
-        { path: 'cart', component: CartComponent },
-        ])
+        ReactiveFormsModule
     ],
     declarations: [
         AppComponent,
@@ -246,9 +226,18 @@ To get shipping data, from `shipping.json`, You can use the `HttpClient` `get()`
 
 <br>
 
-## ✅ Tasks
+## ✅ Tasks to perform on `computer-store` project
 
-✅ Create the cart view and all the other steps in the `computer-store` project as well.
+✅ Create the cart view.
+
+✅ Display all cart items using cart service
+
+✅ Retrieve shipping prices
+
+✅ Configure HTTP Client 
+
+✅ Perofm all other steps followed in this session
+
 
 ### *End of session 7*
 

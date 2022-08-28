@@ -195,9 +195,11 @@ In `product-list.component.html`, bind `<app-product-alerts>` to the `onNotify()
 
 ## ✅ Tasks
 
-✅ Perform all the steps followed in the current session in the project `computer-store`.
+✅ Create a new component called `laptop-alerts-component` similar to above.
 
-✅ Create necessary component to implement passing data from parent to child and vice versa, like `laptop-alerts.component`
+✅ Enable the `laptops-alerts-component` to receive Laptop as property with an `@Input()` decorator.
+
+✅ Perform all the other steps followed in the current session in the project `computer-store`.
 
 ### *End of session 4*
 
